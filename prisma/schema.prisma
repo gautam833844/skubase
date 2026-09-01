@@ -1,0 +1,568 @@
+// =============================================================================
+// Skubase — Prisma Database Schema
+// =============================================================================
+// Database: PostgreSQL
+// Domain: Tyre Business Management (Inventory, Procurement, Sales, Warranties)
+// =============================================================================
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// -----------------------------------------------------------------------------
+// Enums
+// -----------------------------------------------------------------------------
+
+enum Role {
+  ADMIN_OWNER
+  MANAGER
+  STAFF
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  CARD
+  BANK_TRANSFER
+  CHEQUE
+  CREDIT
+  OTHER
+}
+
+enum PaymentStatus {
+  PAID
+  PARTIALLY_PAID
+  UNPAID
+}
+
+enum SaleStatus {
+  DRAFT
+  COMPLETED
+  VOIDED
+}
+
+enum CustomerOrderStatus {
+  PENDING
+  PARTIALLY_FULFILLED
+  FULFILLED
+  CANCELLED
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ORDERED
+  PARTIALLY_RECEIVED
+  COMPLETED
+  CANCELLED
+}
+
+enum ReturnStatus {
+  COMPLETED
+  CANCELLED
+}
+
+enum ReturnItemCondition {
+  SELLABLE
+  DAMAGED
+  NON_SELLABLE
+}
+
+enum RefundStatus {
+  PENDING
+  REFUNDED
+  CREDITED
+  NO_REFUND
+}
+
+enum InventoryMovementType {
+  PURCHASE_RECEIPT
+  SALE
+  SALE_RETURN
+  WARRANTY_OUT_REPLACEMENT
+  WARRANTY_IN_FROM_BRAND
+  WARRANTY_DEFECT_SCRAP
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+}
+
+enum ClaimType {
+  WARRANTY_DEFECT
+  CUSTOMER_RETURN
+  TRANSIT_DAMAGE
+}
+
+enum ClaimStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  RESOLVED
+  CANCELLED
+}
+
+enum ClaimResolutionType {
+  REPLACEMENT_FROM_STOCK
+  CREDIT_NOTE
+  REPAIR
+  REJECTED_NO_ACTION
+}
+
+// -----------------------------------------------------------------------------
+// Core Business Models
+// -----------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(uuid())
+  fullName     String   @map("full_name")
+  email        String?  @unique
+  username     String?  @unique @map("username")
+  phoneNumber  String?  @unique @map("phone_number")
+  passwordHash String   @map("password_hash")
+  role         Role     @default(STAFF)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
+  sales               Sale[]
+  purchaseOrders      PurchaseOrder[]
+  purchaseReceipts    PurchaseReceipt[]
+  customerOrders      CustomerOrder[]
+  payments            Payment[]
+  inventoryMovements  InventoryMovement[]
+  warrantyClaims      WarrantyClaim[]
+  auditLogs           AuditLog[]
+  returns             SaleReturn[]
+
+  @@map("users")
+}
+
+model Product {
+  id               String   @id @default(uuid())
+  brand            String
+  size             String
+  pattern          String   @default("")
+  unitPrice        Decimal  @map("unit_price") @db.Decimal(12, 2)
+  averageCostPrice Decimal  @default(0.00) @map("average_cost_price") @db.Decimal(12, 2)
+  quantityOnHand   Int      @default(0) @map("quantity_on_hand")
+  minStockAlert    Int      @default(4) @map("min_stock_alert")
+  notes            String?
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  saleItems            SaleItem[]
+  customerOrderItems   CustomerOrderItem[]
+  purchaseOrderItems   PurchaseOrderItem[]
+  purchaseReceiptItems PurchaseReceiptItem[]
+  inventoryMovements        InventoryMovement[]
+  warrantyClaims            WarrantyClaim[]       @relation("WarrantyProduct")
+  warrantyReplacementClaims WarrantyClaim[]       @relation("WarrantyReplacementProduct")
+  saleReturnItems           SaleReturnItem[]
+
+  @@unique([brand, size, pattern])
+  @@index([brand, size])
+  @@map("products")
+}
+
+model Customer {
+  id            String   @id @default(uuid())
+  name          String
+  phoneNumber   String?  @map("phone_number")
+  vehicleNumber String?  @map("vehicle_number")
+  vehicleModel  String?  @map("vehicle_model")
+  address       String?
+  notes         String?
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  sales          Sale[]
+  customerOrders CustomerOrder[]
+  warrantyClaims WarrantyClaim[]
+  returns        SaleReturn[]
+
+  @@index([phoneNumber])
+  @@index([vehicleNumber])
+  @@map("customers")
+}
+
+model Supplier {
+  id             String   @id @default(uuid())
+  name           String
+  contactPerson  String?  @map("contact_person")
+  phoneNumber    String?  @map("phone_number")
+  whatsappNumber String?  @map("whatsapp_number")
+  gstNumber      String?  @map("gst_number")
+  address        String?
+  notes          String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  purchaseOrders   PurchaseOrder[]
+  purchaseReceipts PurchaseReceipt[]
+  warrantyClaims   WarrantyClaim[]
+
+  @@map("suppliers")
+}
+
+model CustomerOrder {
+  id          String              @id @default(uuid())
+  orderNumber String              @unique @map("order_number")
+  customerId  String              @map("customer_id")
+  orderDate   DateTime            @default(now()) @map("order_date")
+  status      CustomerOrderStatus @default(PENDING)
+  targetDate  DateTime?           @map("target_date") @db.Date
+  notes       String?
+  createdById String?             @map("created_by_id")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+
+  customer  Customer            @relation(fields: [customerId], references: [id])
+  createdBy User?               @relation(fields: [createdById], references: [id])
+  items     CustomerOrderItem[]
+  sales     Sale[]
+  payments  Payment[]
+
+  @@map("customer_orders")
+}
+
+model CustomerOrderItem {
+  id                String   @id @default(uuid())
+  customerOrderId   String   @map("customer_order_id")
+  productId         String   @map("product_id")
+  quantityRequested Int      @map("quantity_requested")
+  quantityReserved  Int      @default(0) @map("quantity_reserved")
+  quantityFulfilled Int      @default(0) @map("quantity_fulfilled")
+  agreedUnitPrice   Decimal? @map("agreed_unit_price") @db.Decimal(12, 2)
+
+  customerOrder CustomerOrder @relation(fields: [customerOrderId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id])
+  saleItems     SaleItem[]
+
+  @@map("customer_order_items")
+}
+
+model PurchaseOrder {
+  id           String              @id @default(uuid())
+  poNumber     String              @unique @map("po_number")
+  supplierId   String              @map("supplier_id")
+  orderDate    DateTime            @default(now()) @map("order_date")
+  status       PurchaseOrderStatus @default(DRAFT)
+  expectedDate DateTime?           @map("expected_date") @db.Date
+  notes        String?
+  createdById  String?             @map("created_by_id")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  supplier  Supplier            @relation(fields: [supplierId], references: [id])
+  createdBy User?               @relation(fields: [createdById], references: [id])
+  items     PurchaseOrderItem[]
+  receipts  PurchaseReceipt[]
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id               String   @id @default(uuid())
+  purchaseOrderId  String   @map("purchase_order_id")
+  productId        String   @map("product_id")
+  quantityOrdered  Int      @map("quantity_ordered")
+  quantityReceived Int      @default(0) @map("quantity_received")
+  unitCost         Decimal? @map("unit_cost") @db.Decimal(12, 2)
+
+  purchaseOrder PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product               @relation(fields: [productId], references: [id])
+  receiptItems  PurchaseReceiptItem[]
+
+  @@map("purchase_order_items")
+}
+
+model PurchaseReceipt {
+  id                String   @id @default(uuid())
+  receiptNumber     String   @unique @map("receipt_number")
+  purchaseOrderId   String?  @map("purchase_order_id")
+  supplierId        String   @map("supplier_id")
+  receivedDate      DateTime @default(now()) @map("received_date")
+  supplierInvoiceNo String?  @map("supplier_invoice_no")
+  notes             String?
+  createdById       String?  @map("created_by_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  purchaseOrder PurchaseOrder?        @relation(fields: [purchaseOrderId], references: [id])
+  supplier      Supplier              @relation(fields: [supplierId], references: [id])
+  createdBy     User?                 @relation(fields: [createdById], references: [id])
+  items         PurchaseReceiptItem[]
+
+  @@map("purchase_receipts")
+}
+
+model PurchaseReceiptItem {
+  id                  String  @id @default(uuid())
+  purchaseReceiptId   String  @map("purchase_receipt_id")
+  purchaseOrderItemId String? @map("purchase_order_item_id")
+  productId           String  @map("product_id")
+  quantityReceived    Int     @map("quantity_received")
+  unitCost            Decimal @map("unit_cost") @db.Decimal(12, 2)
+
+  purchaseReceipt   PurchaseReceipt    @relation(fields: [purchaseReceiptId], references: [id], onDelete: Cascade)
+  purchaseOrderItem PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [id])
+  product           Product            @relation(fields: [productId], references: [id])
+
+  @@map("purchase_receipt_items")
+}
+
+model Sale {
+  id              String        @id @default(uuid())
+  invoiceNumber   String        @unique @map("invoice_number")
+  customerId      String?       @map("customer_id")
+  customerOrderId String?       @map("customer_order_id")
+  saleDate        DateTime      @default(now()) @map("sale_date")
+  subtotal        Decimal       @db.Decimal(12, 2)
+  discountAmount  Decimal       @default(0.00) @map("discount_amount") @db.Decimal(12, 2)
+  taxAmount       Decimal       @default(0.00) @map("tax_amount") @db.Decimal(12, 2)
+  totalAmount     Decimal       @map("total_amount") @db.Decimal(12, 2)
+  status          SaleStatus    @default(DRAFT)
+  paymentStatus   PaymentStatus @default(UNPAID) @map("payment_status")
+  notes           String?
+  createdById     String?       @map("created_by_id")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  customer       Customer?       @relation(fields: [customerId], references: [id])
+  customerOrder  CustomerOrder?  @relation(fields: [customerOrderId], references: [id])
+  createdBy      User?           @relation(fields: [createdById], references: [id])
+  items          SaleItem[]
+  payments       Payment[]
+  warrantyClaims WarrantyClaim[]
+  returns        SaleReturn[]
+
+  @@index([saleDate])
+  @@index([customerId])
+  @@index([customerOrderId])
+  @@map("sales")
+}
+
+model SaleItem {
+  id                  String  @id @default(uuid())
+  saleId              String  @map("sale_id")
+  productId           String  @map("product_id")
+  customerOrderItemId String? @map("customer_order_item_id")
+  quantity            Int
+  unitPrice           Decimal @map("unit_price") @db.Decimal(12, 2)
+  costPrice           Decimal @map("cost_price") @db.Decimal(12, 2)
+  discountAmount      Decimal @default(0.00) @map("discount_amount") @db.Decimal(12, 2)
+  totalPrice          Decimal @map("total_price") @db.Decimal(12, 2)
+
+  sale              Sale               @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product           Product            @relation(fields: [productId], references: [id])
+  customerOrderItem CustomerOrderItem? @relation(fields: [customerOrderItemId], references: [id])
+  returnItems       SaleReturnItem[]
+  warrantyClaims    WarrantyClaim[]
+
+  @@map("sale_items")
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  saleId          String?       @map("sale_id")
+  customerOrderId String?       @map("customer_order_id")
+  amount          Decimal       @db.Decimal(12, 2)
+  paymentMethod   PaymentMethod @map("payment_method")
+  referenceNumber String?       @map("reference_number")
+  paymentDate     DateTime      @default(now()) @map("payment_date")
+  notes           String?
+  createdById     String?       @map("created_by_id")
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  sale          Sale?          @relation(fields: [saleId], references: [id])
+  customerOrder CustomerOrder? @relation(fields: [customerOrderId], references: [id])
+  createdBy     User?          @relation(fields: [createdById], references: [id])
+
+  @@index([saleId])
+  @@index([customerOrderId])
+  @@map("payments")
+}
+
+model InventoryMovement {
+  id            String                @id @default(uuid())
+  productId     String                @map("product_id")
+  movementType  InventoryMovementType @map("movement_type")
+  quantityDelta Int                   @map("quantity_delta")
+  balanceAfter  Int                   @map("balance_after")
+  referenceType String?               @map("reference_type")
+  referenceId   String?               @map("reference_id")
+  reason        String?
+  actorId       String?               @map("actor_id")
+  createdAt     DateTime              @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id])
+  actor   User?   @relation(fields: [actorId], references: [id])
+
+  @@index([productId, createdAt])
+  @@map("inventory_movements")
+}
+
+model WarrantyClaim {
+  id                     String               @id @default(uuid())
+  claimNumber            String               @unique @map("claim_number")
+  saleId                 String               @map("sale_id")
+  saleItemId             String               @map("sale_item_id")
+  productId              String               @map("product_id")
+  customerId             String?              @map("customer_id")
+  supplierId             String?              @map("supplier_id")
+  claimType              ClaimType            @default(WARRANTY_DEFECT) @map("claim_type")
+  status                 ClaimStatus          @default(SUBMITTED)
+  quantity               Int                  @default(1)
+  issueDescription       String               @map("issue_description")
+  dotSerialCode          String?              @map("dot_serial_code")
+  inspectionNotes        String?              @map("inspection_notes")
+  externalClaimReference String?              @map("external_claim_reference")
+  submittedAt            DateTime?            @map("submitted_at")
+  decisionAt             DateTime?            @map("decision_at")
+  decisionNotes          String?              @map("decision_notes")
+  resolutionType         ClaimResolutionType? @map("resolution_type")
+  resolutionNotes        String?              @map("resolution_notes")
+  resolvedAt             DateTime?            @map("resolved_at")
+  replacementProductId   String?              @map("replacement_product_id")
+  replacementQuantity    Int                  @default(0) @map("replacement_quantity")
+  createdById            String?              @map("created_by_id")
+  createdAt              DateTime             @default(now()) @map("created_at")
+  updatedAt              DateTime             @updatedAt @map("updated_at")
+
+  sale               Sale       @relation(fields: [saleId], references: [id])
+  saleItem           SaleItem   @relation(fields: [saleItemId], references: [id])
+  product            Product    @relation("WarrantyProduct", fields: [productId], references: [id])
+  replacementProduct Product?   @relation("WarrantyReplacementProduct", fields: [replacementProductId], references: [id])
+  customer           Customer?  @relation(fields: [customerId], references: [id])
+  supplier           Supplier?  @relation(fields: [supplierId], references: [id])
+  createdBy          User?      @relation(fields: [createdById], references: [id])
+
+  @@index([saleId])
+  @@index([saleItemId])
+  @@index([productId])
+  @@index([customerId])
+  @@index([status])
+  @@map("warranty_claims")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?  @map("actor_id")
+  entityName String   @map("entity_name")
+  entityId   String   @map("entity_id")
+  action     String
+  oldState   Json?    @map("old_state")
+  newState   Json?    @map("new_state")
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([entityName, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tokenHash String   @unique @map("token_hash")
+  userAgent String?  @map("user_agent")
+  ipAddress String?  @map("ip_address")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  isUsed    Boolean  @default(false) @map("is_used")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model ShopSetting {
+  id          String   @id @default(uuid())
+  name        String
+  tagline     String?
+  address     String?
+  phoneNumber String?  @map("phone_number")
+  email       String?
+  website     String?
+  gstin       String?
+  billFooter  String?  @map("bill_footer")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("shop_settings")
+}
+
+model SaleReturn {
+  id           String       @id @default(uuid())
+  returnNumber String       @unique @map("return_number")
+  saleId       String       @map("sale_id")
+  customerId   String?      @map("customer_id")
+  returnDate   DateTime     @default(now()) @map("return_date")
+  totalAmount  Decimal      @map("total_amount") @db.Decimal(12, 2)
+  refundAmount Decimal      @default(0.00) @map("refund_amount") @db.Decimal(12, 2)
+  status       ReturnStatus @default(COMPLETED)
+  refundStatus RefundStatus @default(PENDING) @map("refund_status")
+  reason       String?
+  notes        String?
+  createdById  String?      @map("created_by_id")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  sale      Sale             @relation(fields: [saleId], references: [id])
+  customer  Customer?        @relation(fields: [customerId], references: [id])
+  createdBy User?            @relation(fields: [createdById], references: [id])
+  items     SaleReturnItem[]
+
+  @@index([saleId])
+  @@index([customerId])
+  @@index([returnDate])
+  @@map("sale_returns")
+}
+
+model SaleReturnItem {
+  id         String              @id @default(uuid())
+  returnId   String              @map("return_id")
+  saleItemId String              @map("sale_item_id")
+  productId  String              @map("product_id")
+  quantity   Int
+  unitPrice  Decimal             @map("unit_price") @db.Decimal(12, 2)
+  totalPrice Decimal             @map("total_price") @db.Decimal(12, 2)
+  condition  ReturnItemCondition @default(SELLABLE)
+  reason     String?
+
+  return   SaleReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  saleItem SaleItem   @relation(fields: [saleItemId], references: [id])
+  product  Product    @relation(fields: [productId], references: [id])
+
+  @@index([returnId])
+  @@index([saleItemId])
+  @@index([productId])
+  @@map("sale_return_items")
+}
+
+
