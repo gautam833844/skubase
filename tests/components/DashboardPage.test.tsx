@@ -18,19 +18,19 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Reports")).toBeInTheDocument();
   });
 
-  it("marks only unimplemented modules as coming soon", () => {
+  it("marks zero modules as coming soon when all are implemented", () => {
     render(<DashboardPage />);
-    const badges = screen.getAllByText("Coming soon");
-    expect(badges.length).toBe(1);
-    expect(screen.getByText("Reports")).toBeInTheDocument();
+    const badges = screen.queryAllByText("Coming soon");
+    expect(badges.length).toBe(0);
   });
 
-  it("provides navigation links for implemented modules", () => {
+  it("provides navigation links for all implemented modules", () => {
     render(<DashboardPage />);
     expect(screen.getByRole("link", { name: /Inventory/i })).toHaveAttribute("href", "/inventory");
     expect(screen.getByRole("link", { name: /Sales/i })).toHaveAttribute("href", "/sales");
     expect(screen.getByRole("link", { name: /Purchases/i })).toHaveAttribute("href", "/purchases");
     expect(screen.getByRole("link", { name: /Customers/i })).toHaveAttribute("href", "/customers");
     expect(screen.getByRole("link", { name: /Suppliers/i })).toHaveAttribute("href", "/suppliers");
+    expect(screen.getByRole("link", { name: /Reports/i })).toHaveAttribute("href", "/reports");
   });
 });

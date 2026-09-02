@@ -31,7 +31,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { label: "Customers", href: "/customers", icon: "customers", implemented: true },
   { label: "Suppliers", href: "/suppliers", icon: "suppliers", implemented: true },
   { label: "Warranties", href: "/warranty", icon: "warranty", implemented: true },
-  { label: "Reports", href: "/reports", icon: "reports", implemented: false },
+  { label: "Reports", href: "/reports", icon: "reports", implemented: true },
   { label: "Settings", href: "/settings", icon: "settings", implemented: true },
 ] as const;
 

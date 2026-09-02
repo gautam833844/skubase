@@ -54,7 +54,7 @@ const DASHBOARD_MODULES: readonly DashboardModule[] = [
   {
     title: "Reports",
     href: "/reports",
-    implemented: false,
+    implemented: true,
     description: "Business insights, stock reports, and financial summaries.",
     icon: "📊",
   },
