@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card } from "@/components/ui";
 import { StatusBadge } from "@/components/ui";
+import { DashboardKpis } from "@/components/dashboard/DashboardKpis";
 
 // =============================================================================
 // Dashboard — Landing page
@@ -72,6 +73,9 @@ export default function DashboardPage() {
           Your tyre business management system. Select a module below to get started.
         </p>
       </div>
+
+      {/* Business Performance KPIs */}
+      <DashboardKpis />
 
       {/* Module cards grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
