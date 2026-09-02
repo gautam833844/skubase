@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import type { ShopSettingView } from "@/lib/types/shop";
@@ -127,8 +126,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <AppShell>
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
         {/* Page Header */}
         <div>
           <h1 className="text-2xl font-extrabold text-surface-900 tracking-tight">
@@ -344,6 +342,5 @@ export default function SettingsPage() {
           </form>
         )}
       </div>
-    </AppShell>
   );
 }
