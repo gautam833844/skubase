@@ -107,3 +107,18 @@ Skubase is a specialized, production-ready enterprise management web application
 - **Never commit real credentials**: `.env` and `.env.local` files are strictly excluded via `.gitignore`.
 - **Database sessions**: User sessions use opaque cryptographically generated random tokens stored in the database with sliding expiry.
 - **Passwords**: All passwords are validated for minimum length (12+ characters) and hashed using Argon2id with memory-hard parameters.
+
+---
+
+## 7. Baseline Verification Status
+
+The application baseline (Steps 1–10) has been verified against PostgreSQL 18:
+- **Purchases**: Purchase order creation, goods receipt, and automated stock ledger updates verified.
+- **Customers & Suppliers**: Full CRUD workflows and mandatory attribute validation verified.
+- **Sales & Deductions**: Atomic stock deduction on confirmation; draft preservation verified.
+- **Returns & Refunds**: Reversible inventory restocking (`SELLABLE`), over-return prevention, and historical sale immutability verified.
+- **Warranties**: End-to-end claim pipeline (`SUBMITTED` -> `UNDER_REVIEW` -> `APPROVED`), replacement inventory deduction verified.
+- **Movement History**: Ledger auditing across all 5 operational movement types verified.
+- **Settings**: Shop configuration updates and multi-request persistence verified.
+- **Authentication**: Argon2id auth, session lifetime, logout revocation, and route middleware protection verified.
+- **Quality Gates**: TypeScript (`tsc --noEmit`), ESLint, Vitest (43 suites, 260 tests), and Next.js production build passing.
