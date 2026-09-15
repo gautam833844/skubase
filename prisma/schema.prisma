@@ -104,6 +104,17 @@ enum ClaimStatus {
   CANCELLED
 }
 
+
+enum AlignmentDocType {
+  ESTIMATE
+  BILL
+}
+
+enum AlignmentBillStatus {
+  COMPLETED
+  VOIDED
+}
+
 enum ClaimResolutionType {
   REPLACEMENT_FROM_STOCK
   CREDIT_NOTE
@@ -138,6 +149,7 @@ model User {
   warrantyClaims      WarrantyClaim[]
   auditLogs           AuditLog[]
   returns             SaleReturn[]
+  alignmentBills      AlignmentBill[]
 
   @@map("users")
 }
@@ -186,6 +198,7 @@ model Customer {
   customerOrders CustomerOrder[]
   warrantyClaims WarrantyClaim[]
   returns        SaleReturn[]
+  alignmentBills AlignmentBill[]
 
   @@index([phoneNumber])
   @@index([vehicleNumber])
@@ -566,3 +579,49 @@ model SaleReturnItem {
 }
 
 
+
+
+model AlignmentBill {
+  id            String              @id @default(uuid())
+  billNumber    String              @unique @map("bill_number")
+  documentType  AlignmentDocType    @default(BILL) @map("document_type")
+  date          DateTime            @default(now())
+  customerId    String?             @map("customer_id")
+  customerName  String              @map("customer_name")
+  phoneNumber   String?             @map("phone_number")
+  vehicleNumber String              @map("vehicle_number")
+  kilometers    Int?                @map("kilometers")
+  totalAmount   Decimal             @map("total_amount") @db.Decimal(12, 2)
+  status        AlignmentBillStatus @default(COMPLETED)
+  notes         String?
+  createdById   String?             @map("created_by_id")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+
+  customer  Customer?           @relation(fields: [customerId], references: [id])
+  createdBy User?               @relation(fields: [createdById], references: [id])
+  items     AlignmentBillItem[]
+
+  @@index([date])
+  @@index([billNumber])
+  @@index([customerId])
+  @@index([vehicleNumber])
+  @@index([documentType])
+  @@index([createdById])
+  @@map("alignment_bills")
+}
+
+model AlignmentBillItem {
+  id              String        @id @default(uuid())
+  alignmentBillId String        @map("alignment_bill_id")
+  particular      String
+  rate            Decimal       @default(0.00) @db.Decimal(12, 2)
+  quantity        Decimal       @default(0.00) @db.Decimal(10, 2)
+  amount          Decimal       @default(0.00) @db.Decimal(12, 2)
+  displayOrder    Int           @map("display_order")
+
+  alignmentBill AlignmentBill @relation(fields: [alignmentBillId], references: [id], onDelete: Cascade)
+
+  @@index([alignmentBillId])
+  @@map("alignment_bill_items")
+}

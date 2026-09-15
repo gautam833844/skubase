@@ -29,7 +29,10 @@ export type PermissionKey =
   | "settings:manage"
   | "returns:create"
   | "returns:view"
-  | "audit_logs:view";
+  | "audit_logs:view"
+  | "alignment:create"
+  | "alignment:view_history"
+  | "alignment:void";
 
 export type RolePermissionMatrix = Record<Role, Record<PermissionKey, PermissionScope>>;
 
@@ -60,6 +63,9 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMatrix = {
     "returns:create": "ALL",
     "returns:view": "ALL",
     "audit_logs:view": "ALL",
+    "alignment:create": "ALL",
+    "alignment:view_history": "ALL",
+    "alignment:void": "ALL",
   },
   MANAGER: {
     "inventory:view": "ALL",
@@ -84,6 +90,9 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMatrix = {
     "returns:create": "ALL",
     "returns:view": "ALL",
     "audit_logs:view": "NONE",
+    "alignment:create": "ALL",
+    "alignment:view_history": "ALL",
+    "alignment:void": "NONE",
   },
   STAFF: {
     "inventory:view": "ALL",
@@ -108,6 +117,9 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMatrix = {
     "returns:create": "ALL",
     "returns:view": "OWN",
     "audit_logs:view": "NONE",
+    "alignment:create": "ALL",
+    "alignment:view_history": "OWN",
+    "alignment:void": "NONE",
   },
 };
 

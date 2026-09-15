@@ -27,6 +27,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { label: "Dashboard", href: "/", icon: "dashboard", implemented: true },
   { label: "Inventory", href: "/inventory", icon: "inventory", implemented: true },
   { label: "Sales", href: "/sales", icon: "sales", implemented: true },
+  { label: "Alignment & Services", href: "/alignment", icon: "alignment", implemented: true },
   { label: "Purchases", href: "/purchases", icon: "purchases", implemented: true },
   { label: "Customers", href: "/customers", icon: "customers", implemented: true },
   { label: "Suppliers", href: "/suppliers", icon: "suppliers", implemented: true },
