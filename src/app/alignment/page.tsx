@@ -25,7 +25,7 @@ export default function AlignmentBillingPage() {
       const res = await fetch(`/api/alignment?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
-        setBills(data.data.bills);
+        setBills(Array.isArray(data.data) ? data.data : (data.data?.bills ?? []));
       } else {
         setError(data.error || "Failed to load alignment records");
       }
