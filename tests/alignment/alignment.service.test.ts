@@ -125,6 +125,72 @@ describe("Alignment & Service Billing Service Unit Tests", () => {
       expect(db.alignmentBill.create).toHaveBeenCalledTimes(1);
     });
 
+    it("creates an alignment bill with standard services and additional custom services", async () => {
+      vi.mocked(db.alignmentBill.count).mockResolvedValue(0);
+      vi.mocked(db.alignmentBill.findUnique).mockResolvedValue(null);
+
+      let capturedData: any = null;
+      vi.mocked(db.alignmentBill.create).mockImplementation(async (args: any) => {
+        capturedData = args.data;
+        return {
+          id: "aln-custom-1",
+          billNumber: args.data.billNumber,
+          documentType: args.data.documentType,
+          date: args.data.date,
+          customerId: null,
+          customerName: args.data.customerName,
+          phoneNumber: args.data.phoneNumber,
+          vehicleNumber: args.data.vehicleNumber,
+          kilometers: args.data.kilometers,
+          totalAmount: args.data.totalAmount,
+          status: args.data.status,
+          notes: args.data.notes,
+          createdById: args.data.createdById,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          createdBy: { id: "admin-1", fullName: "Admin User", username: "admin" },
+          items: args.data.items.create.map((item: any, idx: number) => ({
+            id: `item-${idx + 1}`,
+            ...item,
+          })),
+        } as any;
+      });
+
+      const result = await createAlignmentBill(
+        {
+          documentType: AlignmentDocType.BILL,
+          customerName: "Suresh Babu",
+          vehicleNumber: "AP02CD5678",
+          items: [
+            { displayOrder: 1, particular: "Wheel Alignment 3D", rate: 450, quantity: 1 },
+            { displayOrder: 10, particular: "Tyre Changing / Opening Fitting", rate: 100, quantity: 2 },
+            { displayOrder: 12, particular: "Nitrogen Gas Top-up", rate: 50, quantity: 4 },
+          ],
+        },
+        adminActor
+      );
+
+      expect(result.customerName).toBe("Suresh Babu");
+      // Standard items count = 11, plus 1 additional = 12 items total
+      expect(capturedData.items.create).toHaveLength(12);
+
+      // Verify preset #10 particular is "Tyre Changing / Opening Fitting"
+      const item10 = capturedData.items.create.find((i: any) => i.displayOrder === 10);
+      expect(item10.particular).toBe("Tyre Changing / Opening Fitting");
+      expect(Number(item10.amount)).toBe(200);
+
+      // Verify additional item (displayOrder 12)
+      const item12 = capturedData.items.create.find((i: any) => i.displayOrder === 12);
+      expect(item12.particular).toBe("Nitrogen Gas Top-up");
+      expect(Number(item12.rate)).toBe(50);
+      expect(Number(item12.quantity)).toBe(4);
+      expect(Number(item12.amount)).toBe(200);
+
+      // Total = 450 (item 1) + 200 (item 10) + 200 (item 12) = 850
+      expect(Number(capturedData.totalAmount)).toBe(850);
+      expect(result.totalAmount).toBe("850");
+    });
+
     it("rejects creation when customer name is missing", async () => {
       await expect(
         createAlignmentBill(

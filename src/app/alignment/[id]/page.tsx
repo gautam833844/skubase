@@ -256,7 +256,7 @@ export default function AlignmentBillDetailPage({
             </div>
           </div>
 
-          {/* 3. 11-Row Service Items Table */}
+          {/* 3. Service Items Table */}
           <div className="py-0">
             <table className="w-full text-xs text-left border-collapse">
               <thead>
@@ -266,8 +266,8 @@ export default function AlignmentBillDetailPage({
                 >
                   <th className="py-1.5 px-2 text-center w-10 border-r border-black">S.No.</th>
                   <th className="py-1.5 px-2.5 border-r border-black">Particulars</th>
-                  <th className="py-1.5 px-2.5 text-right w-24 border-r border-black">Rates (Rs.)</th>
                   <th className="py-1.5 px-2 text-center w-14 border-r border-black">Qty.</th>
+                  <th className="py-1.5 px-2.5 text-right w-24 border-r border-black">Rates (Rs.)</th>
                   <th className="py-1.5 px-2.5 text-right w-28">Amount (Rs.)</th>
                 </tr>
               </thead>
@@ -289,13 +289,13 @@ export default function AlignmentBillDetailPage({
                       <td className="py-1 px-2.5 border-r border-black font-semibold text-black">
                         {item.particular}
                       </td>
+                      <td className="py-1 px-2 text-center border-r border-black font-mono">
+                        {hasValue ? qtyNum.toString() : ""}
+                      </td>
                       <td className="py-1 px-2.5 text-right border-r border-black font-mono">
                         {hasValue
                           ? rateNum.toLocaleString("en-IN", { minimumFractionDigits: 2 })
                           : ""}
-                      </td>
-                      <td className="py-1 px-2 text-center border-r border-black font-mono">
-                        {hasValue ? qtyNum.toString() : ""}
                       </td>
                       <td className="py-1 px-2.5 text-right font-mono font-bold text-black">
                         {hasValue

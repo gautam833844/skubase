@@ -85,32 +85,72 @@ export async function createAlignmentBill(
 
   const docType = input.documentType === "ESTIMATE" ? AlignmentDocType.ESTIMATE : AlignmentDocType.BILL;
 
-  // Build 11 items preserving standard order
+  // Build items preserving standard order + additional services
   const inputItemsMap = new Map<number, { rate: number; quantity: number }>();
+  const additionalItems: { particular: string; rate: number; quantity: number }[] = [];
+
   if (Array.isArray(input.items)) {
-    input.items.forEach((item) => {
+    input.items.forEach((item, index) => {
       const order = Number(item.displayOrder);
       const rate = Math.max(0, parseFloat(String(item.rate || 0)));
       const qty = Math.max(0, parseFloat(String(item.quantity || 0)));
-      inputItemsMap.set(order, { rate: isNaN(rate) ? 0 : rate, quantity: isNaN(qty) ? 0 : qty });
+      const cleanRate = isNaN(rate) ? 0 : rate;
+      const cleanQty = isNaN(qty) ? 0 : qty;
+      const part = typeof item.particular === "string" ? item.particular.trim() : "";
+
+      if (order >= 1 && order <= 11) {
+        inputItemsMap.set(order, { rate: cleanRate, quantity: cleanQty });
+      } else if (order > 11 || index >= 11 || (!order && part)) {
+        if (part) {
+          additionalItems.push({
+            particular: part,
+            rate: cleanRate,
+            quantity: cleanQty,
+          });
+        }
+      }
     });
   }
 
   let computedTotal = 0;
-  const processedItems = DEFAULT_ALIGNMENT_SERVICES.map((preset) => {
+  const processedItems: {
+    particular: string;
+    displayOrder: number;
+    rate: Prisma.Decimal;
+    quantity: Prisma.Decimal;
+    amount: Prisma.Decimal;
+  }[] = [];
+
+  // 1. Process 11 standard services
+  DEFAULT_ALIGNMENT_SERVICES.forEach((preset) => {
     const override = inputItemsMap.get(preset.displayOrder);
     const rate = override ? override.rate : preset.defaultRate;
     const quantity = override ? override.quantity : preset.defaultQuantity;
     const amount = Number((rate * quantity).toFixed(2));
     computedTotal += amount;
 
-    return {
+    processedItems.push({
       particular: preset.particular,
       displayOrder: preset.displayOrder,
       rate: new Prisma.Decimal(rate.toFixed(2)),
       quantity: new Prisma.Decimal(quantity.toFixed(2)),
       amount: new Prisma.Decimal(amount.toFixed(2)),
-    };
+    });
+  });
+
+  // 2. Process optional additional services (displayOrder 12, 13...)
+  let nextDisplayOrder = 12;
+  additionalItems.forEach((addl) => {
+    const amount = Number((addl.rate * addl.quantity).toFixed(2));
+    computedTotal += amount;
+
+    processedItems.push({
+      particular: addl.particular,
+      displayOrder: nextDisplayOrder++,
+      rate: new Prisma.Decimal(addl.rate.toFixed(2)),
+      quantity: new Prisma.Decimal(addl.quantity.toFixed(2)),
+      amount: new Prisma.Decimal(amount.toFixed(2)),
+    });
   });
 
   const finalBill = await db.$transaction(async (tx) => {
@@ -441,12 +481,12 @@ export async function generateAlignmentPdf(id: string, actor: AuthActor): Promis
   // Divider above table
   doc.line(margin, cursorY, margin + contentWidth, cursorY);
 
-  // 3. 11-Row Service Table
+  // 3. Service Table (Particulars | Qty. | Rates | Amount)
   const tableHeaderY = cursorY;
-  const colSNo = margin + 8;
+  const colSNo = margin + 7;
   const colPart = margin + 16;
-  const colRate = margin + 115;
-  const colQty = margin + 145;
+  const colQty = margin + 108;
+  const colRate = margin + 144;
   const colAmt = margin + contentWidth - 4;
 
   doc.setFillColor(245, 245, 245);
@@ -457,10 +497,10 @@ export async function generateAlignmentPdf(id: string, actor: AuthActor): Promis
   doc.setFontSize(8.5);
   doc.setTextColor(0, 0, 0);
 
-  doc.text("S.No.", colSNo - 4, tableHeaderY + 4.8, { align: "center" });
+  doc.text("S.No.", colSNo, tableHeaderY + 4.8, { align: "center" });
   doc.text("Particulars", colPart, tableHeaderY + 4.8);
-  doc.text("Rates (Rs.)", colRate, tableHeaderY + 4.8, { align: "right" });
   doc.text("Qty.", colQty, tableHeaderY + 4.8, { align: "center" });
+  doc.text("Rates (Rs.)", colRate, tableHeaderY + 4.8, { align: "right" });
   doc.text("Amount (Rs.)", colAmt, tableHeaderY + 4.8, { align: "right" });
 
   cursorY += 7;
@@ -479,26 +519,26 @@ export async function generateAlignmentPdf(id: string, actor: AuthActor): Promis
     doc.setTextColor(30, 30, 30);
 
     // S.No
-    doc.text(item.displayOrder.toString(), colSNo - 4, rowY + 5, { align: "center" });
+    doc.text(item.displayOrder.toString(), colSNo, rowY + 5, { align: "center" });
 
     // Particulars
     doc.text(item.particular, colPart, rowY + 5);
 
-    // Rates, Qty, Amount
+    // Qty, Rates, Amount
     const rateNum = parseFloat(item.rate);
     const qtyNum = parseFloat(item.quantity);
     const amtNum = parseFloat(item.amount);
 
     if (rateNum > 0 && qtyNum > 0) {
-      doc.text(rateNum.toLocaleString("en-IN", { minimumFractionDigits: 2 }), colRate, rowY + 5, { align: "right" });
       doc.text(qtyNum.toString(), colQty, rowY + 5, { align: "center" });
+      doc.text(rateNum.toLocaleString("en-IN", { minimumFractionDigits: 2 }), colRate, rowY + 5, { align: "right" });
       doc.setFont("helvetica", "bold");
       doc.text(amtNum.toLocaleString("en-IN", { minimumFractionDigits: 2 }), colAmt, rowY + 5, { align: "right" });
       doc.setFont("helvetica", "normal");
     } else {
       doc.setTextColor(180, 180, 180);
-      doc.text("-", colRate, rowY + 5, { align: "right" });
       doc.text("-", colQty, rowY + 5, { align: "center" });
+      doc.text("-", colRate, rowY + 5, { align: "right" });
       doc.text("-", colAmt, rowY + 5, { align: "right" });
     }
 
@@ -519,8 +559,8 @@ export async function generateAlignmentPdf(id: string, actor: AuthActor): Promis
   // Vertical Separators
   doc.line(margin + 14, tableHeaderY, margin + 14, tableContentEndY);
   doc.line(margin + 98, tableHeaderY, margin + 98, tableContentEndY);
-  doc.line(margin + 128, tableHeaderY, margin + 128, tableContentEndY);
-  doc.line(margin + 152, tableHeaderY, margin + 152, tableContentEndY);
+  doc.line(margin + 118, tableHeaderY, margin + 118, tableContentEndY);
+  doc.line(margin + 148, tableHeaderY, margin + 148, tableContentEndY);
 
   // 4. Total Row
   doc.setFillColor(245, 245, 245);
@@ -529,7 +569,7 @@ export async function generateAlignmentPdf(id: string, actor: AuthActor): Promis
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9.5);
   doc.setTextColor(0, 0, 0);
-  doc.text("TOTAL Rs.", margin + 128 - 4, cursorY + 5.5, { align: "right" });
+  doc.text("TOTAL Rs.", margin + 148 - 4, cursorY + 5.5, { align: "right" });
 
   const totalFormatted = Number(bill.totalAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 });
   doc.text(totalFormatted, colAmt, cursorY + 5.5, { align: "right" });

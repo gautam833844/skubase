@@ -100,6 +100,70 @@ describe("Alignment Billing API Route Tests", () => {
     expect(data.data.billNumber).toBe("ALN-1001");
   });
 
+  it("POST /api/alignment creates a bill with additional custom service items", async () => {
+    vi.spyOn(alignmentService, "createAlignmentBill").mockResolvedValue({
+      id: "aln-2",
+      billNumber: "ALN-1002",
+      documentType: AlignmentDocType.BILL,
+      date: new Date().toISOString(),
+      customerId: null,
+      customerName: "Suresh",
+      phoneNumber: null,
+      vehicleNumber: "KA01CD5678",
+      kilometers: 25000,
+      totalAmount: "850.00",
+      status: AlignmentBillStatus.COMPLETED,
+      notes: null,
+      createdById: "user-1",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      items: [
+        {
+          id: "item-1",
+          displayOrder: 1,
+          particular: "Wheel Alignment 3D",
+          rate: "450.00",
+          quantity: "1.00",
+          amount: "450.00",
+        },
+        {
+          id: "item-12",
+          displayOrder: 12,
+          particular: "Nitrogen Gas Top-up",
+          rate: "100.00",
+          quantity: "4.00",
+          amount: "400.00",
+        },
+      ],
+    });
+
+    const req = new Request("http://localhost:3000/api/alignment", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        host: "localhost:3000",
+        origin: "http://localhost:3000",
+      },
+      body: JSON.stringify({
+        documentType: "BILL",
+        customerName: "Suresh",
+        vehicleNumber: "KA01CD5678",
+        items: [
+          { displayOrder: 1, particular: "Wheel Alignment 3D", rate: 450, quantity: 1 },
+          { displayOrder: 12, particular: "Nitrogen Gas Top-up", rate: 100, quantity: 4 },
+        ],
+      }),
+    });
+
+    const res = await createBill(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(data.success).toBe(true);
+    expect(data.data.items).toHaveLength(2);
+    expect(data.data.items[1].particular).toBe("Nitrogen Gas Top-up");
+  });
+
   it("GET /api/alignment/[id] returns single bill details", async () => {
     vi.spyOn(alignmentService, "getAlignmentBillById").mockResolvedValue({
       id: "aln-1",

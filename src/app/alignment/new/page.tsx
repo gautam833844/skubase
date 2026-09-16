@@ -5,13 +5,16 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { NavIcon } from "@/components/ui/NavIcon";
 import { DEFAULT_ALIGNMENT_SERVICES } from "@/lib/constants/alignment-services";
 
 interface ServiceRowState {
+  id: string;
   displayOrder: number;
   particular: string;
   rate: string;
   quantity: string;
+  isCustom?: boolean;
 }
 
 export default function NewAlignmentBillPage() {
@@ -26,13 +29,15 @@ export default function NewAlignmentBillPage() {
   const [kilometers, setKilometers] = useState("");
   const [notes, setNotes] = useState("");
 
-  // 11 Fixed Pre-populated Services
+  // 11 Fixed Pre-populated Services + Optional Dynamic Additional Services
   const [services, setServices] = useState<ServiceRowState[]>(() =>
     DEFAULT_ALIGNMENT_SERVICES.map((s) => ({
+      id: `std-${s.displayOrder}`,
       displayOrder: s.displayOrder,
       particular: s.particular,
       rate: "",
-      quantity: "",
+      quantity: "1",
+      isCustom: false,
     }))
   );
 
@@ -52,11 +57,35 @@ export default function NewAlignmentBillPage() {
     return rowAmounts.reduce((acc, curr) => acc + curr, 0);
   }, [rowAmounts]);
 
-  const handleItemChange = (index: number, field: "rate" | "quantity", value: string) => {
+  const handleItemChange = (index: number, field: "particular" | "rate" | "quantity", value: string) => {
     setServices((prev) => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
       return updated;
+    });
+  };
+
+  const handleAddService = () => {
+    setServices((prev) => [
+      ...prev,
+      {
+        id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        displayOrder: prev.length + 1,
+        particular: "",
+        rate: "",
+        quantity: "1",
+        isCustom: true,
+      },
+    ]);
+  };
+
+  const handleRemoveService = (indexToRemove: number) => {
+    setServices((prev) => {
+      const filtered = prev.filter((_, idx) => idx !== indexToRemove);
+      return filtered.map((item, idx) => ({
+        ...item,
+        displayOrder: idx + 1,
+      }));
     });
   };
 
@@ -73,6 +102,19 @@ export default function NewAlignmentBillPage() {
       return;
     }
 
+    // Validate custom services have particulars if filled
+    for (let i = 0; i < services.length; i++) {
+      const row = services[i];
+      if (row.isCustom) {
+        const rateNum = parseFloat(row.rate) || 0;
+        const qtyNum = parseFloat(row.quantity) || 0;
+        if ((rateNum > 0 || qtyNum > 0) && !row.particular.trim()) {
+          setError(`Please enter a service name for additional row #${row.displayOrder}`);
+          return;
+        }
+      }
+    }
+
     setSubmitting(true);
     try {
       const payload = {
@@ -83,12 +125,14 @@ export default function NewAlignmentBillPage() {
         vehicleNumber: vehicleNumber.trim().toUpperCase(),
         kilometers: kilometers ? parseInt(kilometers, 10) : undefined,
         notes: notes.trim() || undefined,
-        items: services.map((s) => ({
-          particular: s.particular,
-          rate: parseFloat(s.rate) || 0,
-          quantity: parseFloat(s.quantity) || 0,
-          displayOrder: s.displayOrder,
-        })),
+        items: services
+          .filter((s) => !s.isCustom || s.particular.trim().length > 0)
+          .map((s) => ({
+            particular: s.particular.trim(),
+            rate: parseFloat(s.rate) || 0,
+            quantity: parseFloat(s.quantity) || 0,
+            displayOrder: s.displayOrder,
+          })),
       };
 
       const res = await fetch("/api/alignment", {
@@ -124,7 +168,7 @@ export default function NewAlignmentBillPage() {
             New {documentType === "ESTIMATE" ? "Alignment Estimate" : "Alignment Bill"}
           </h1>
           <p className="text-sm text-surface-500">
-            Generate printable workshop documentation with 11 standard services
+            Generate printable workshop documentation with 11 standard services &amp; optional additional services
           </p>
         </div>
       </div>
@@ -256,15 +300,27 @@ export default function NewAlignmentBillPage() {
           </div>
         </Card>
 
-        {/* 11 Services Fixed Table */}
+        {/* Services Table (11 Standard + Additional Services) */}
         <Card className="p-0 overflow-hidden">
-          <div className="bg-surface-50 px-5 py-3 border-b border-surface-200 flex justify-between items-center">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-surface-700">
-              Service Particulars & Rates (11 Services)
-            </h3>
-            <span className="text-xs text-surface-500 font-normal">
-              Leave unperformed services blank or 0
-            </span>
+          <div className="bg-surface-50 px-5 py-3 border-b border-surface-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-surface-700">
+                Service Particulars &amp; Rates ({services.length} Services)
+              </h3>
+              <span className="text-xs text-surface-500 font-normal">
+                Standard 11 services are fixed. Leave unperformed services blank or 0.
+              </span>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleAddService}
+              className="cursor-pointer inline-flex items-center gap-1.5 font-bold shrink-0"
+            >
+              <NavIcon name="plus" className="w-3.5 h-3.5" />
+              <span>Add Service</span>
+            </Button>
           </div>
 
           <div className="overflow-x-auto">
@@ -273,9 +329,10 @@ export default function NewAlignmentBillPage() {
                 <tr>
                   <th className="py-2.5 px-4 text-center w-12">S.No.</th>
                   <th className="py-2.5 px-4">Particulars</th>
-                  <th className="py-2.5 px-4 text-right w-36">Rates (₹)</th>
                   <th className="py-2.5 px-4 text-center w-28">Qty.</th>
+                  <th className="py-2.5 px-4 text-right w-36">Rates (₹)</th>
                   <th className="py-2.5 px-4 text-right w-36">Amount (₹)</th>
+                  <th className="py-2.5 px-3 text-center w-14">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-200">
@@ -283,25 +340,26 @@ export default function NewAlignmentBillPage() {
                   const isFilled = rowAmounts[idx] > 0;
                   return (
                     <tr
-                      key={row.displayOrder}
+                      key={row.id}
                       className={`transition-colors ${isFilled ? "bg-primary-50/30" : "hover:bg-surface-50/50"}`}
                     >
                       <td className="py-2 px-4 text-center font-bold text-surface-500">
                         {row.displayOrder}
                       </td>
-                      <td className="py-2 px-4 font-semibold text-surface-900">
-                        {row.particular}
-                      </td>
-                      <td className="py-2 px-4 text-right">
-                        <input
-                          type="number"
-                          step="any"
-                          min="0"
-                          placeholder="0.00"
-                          value={row.rate}
-                          onChange={(e) => handleItemChange(idx, "rate", e.target.value)}
-                          className="w-full px-2.5 py-1 text-right text-sm border border-surface-300 rounded focus:ring-2 focus:ring-primary-500 font-medium"
-                        />
+                      <td className="py-2 px-4">
+                        {row.isCustom ? (
+                          <input
+                            type="text"
+                            placeholder="Enter service name (e.g. Nitrogen Top-up)"
+                            value={row.particular}
+                            onChange={(e) => handleItemChange(idx, "particular", e.target.value)}
+                            className="w-full px-2.5 py-1 text-sm border border-surface-300 rounded focus:ring-2 focus:ring-primary-500 font-semibold text-surface-900"
+                          />
+                        ) : (
+                          <span className="font-semibold text-surface-900">
+                            {row.particular}
+                          </span>
+                        )}
                       </td>
                       <td className="py-2 px-4 text-center">
                         <input
@@ -314,16 +372,58 @@ export default function NewAlignmentBillPage() {
                           className="w-full px-2 py-1 text-center text-sm border border-surface-300 rounded focus:ring-2 focus:ring-primary-500 font-medium"
                         />
                       </td>
+                      <td className="py-2 px-4 text-right">
+                        <input
+                          type="number"
+                          step="any"
+                          min="0"
+                          placeholder="0.00"
+                          value={row.rate}
+                          onChange={(e) => handleItemChange(idx, "rate", e.target.value)}
+                          className="w-full px-2.5 py-1 text-right text-sm border border-surface-300 rounded focus:ring-2 focus:ring-primary-500 font-medium"
+                        />
+                      </td>
                       <td className="py-2 px-4 text-right font-mono font-bold text-surface-900">
                         {rowAmounts[idx] > 0
                           ? `₹${rowAmounts[idx].toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
                           : "—"}
+                      </td>
+                      <td className="py-2 px-3 text-center">
+                        {row.isCustom ? (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveService(idx)}
+                            title="Remove additional service"
+                            className="p-1 text-danger-600 hover:text-danger-800 hover:bg-danger-50 rounded transition-colors cursor-pointer"
+                          >
+                            <NavIcon name="trash" className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <span className="text-surface-300 font-mono text-xs">—</span>
+                        )}
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* Add Service Helper Bar & Total Row */}
+          <div className="bg-surface-50 px-5 py-2.5 border-t border-surface-200 flex justify-between items-center">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleAddService}
+              className="cursor-pointer inline-flex items-center gap-1.5 text-xs font-bold"
+            >
+              <NavIcon name="plus" className="w-3.5 h-3.5" />
+              <span>Add Another Service</span>
+            </Button>
+            <span className="text-xs text-surface-500">
+              {services.length > 11 ? `${services.length - 11} additional service(s) added` : "Standard 11 services"}
+            </span>
           </div>
 
           {/* Total Row */}
