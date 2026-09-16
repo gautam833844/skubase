@@ -3,9 +3,9 @@
 // =============================================================================
 
 /** Application metadata */
-export const APP_NAME = "Skubase";
+export const APP_NAME = "KMR Group";
 export const APP_DESCRIPTION =
-  "Comprehensive tyre business management — inventory, sales, purchases, customers, and more.";
+  "KMR Group tyre and automotive business management — inventory, sales, purchases, alignment, and customer care.";
 export const APP_VERSION = "0.1.0";
 
 /** Authentication cookie name */

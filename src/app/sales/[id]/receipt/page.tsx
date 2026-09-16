@@ -4,6 +4,7 @@ import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge, type BadgeVariant } from "@/components/ui/StatusBadge";
+import { NavIcon } from "@/components/ui/NavIcon";
 import type { SaleReceiptView } from "@/lib/types/receipt";
 
 export default function SaleReceiptPage({
@@ -164,26 +165,29 @@ export default function SaleReceiptPage({
             variant="outline"
             size="sm"
             onClick={handlePrint}
-            className="cursor-pointer font-bold"
+            className="cursor-pointer font-bold inline-flex items-center gap-1.5"
           >
-            🖨️ Print Receipt
+            <NavIcon name="printer" className="w-4 h-4" />
+            <span>Print Receipt</span>
           </Button>
           <Button
             variant="primary"
             size="sm"
             onClick={handleDownloadPdf}
             disabled={isDownloadingPdf}
-            className="bg-primary-700 hover:bg-primary-800 font-bold cursor-pointer"
+            className="bg-primary-700 hover:bg-primary-800 font-bold cursor-pointer inline-flex items-center gap-1.5"
           >
-            {isDownloadingPdf ? "Generating PDF..." : "📥 Download PDF"}
+            <NavIcon name="download" className="w-4 h-4" />
+            <span>{isDownloadingPdf ? "Generating PDF..." : "Download PDF"}</span>
           </Button>
         </div>
       </div>
 
       {/* Draft Warning Banner */}
       {receipt.isDraft && (
-        <div className="max-w-3xl mx-auto mb-4 p-3.5 bg-warning-50 text-warning-900 border border-warning-200 rounded-lg text-xs font-semibold no-print">
-          ⚠️ <span className="font-bold">Draft Sale Notice:</span> This is a draft estimate and not a finalized bill. Physical inventory has not yet been deducted.
+        <div className="max-w-3xl mx-auto mb-4 p-3.5 bg-warning-50 text-warning-900 border border-warning-200 rounded-lg text-xs font-semibold no-print flex items-center gap-2">
+          <NavIcon name="alert-triangle" className="w-4 h-4 text-warning-700 shrink-0" />
+          <span><strong className="font-bold">Draft Sale Notice:</strong> This is a draft estimate and not a finalized bill. Physical inventory has not yet been deducted.</span>
         </div>
       )}
 

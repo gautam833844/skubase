@@ -21,8 +21,9 @@ describe("AppShell", () => {
     );
 
     expect(screen.getByTestId("main-content")).toBeInTheDocument();
-    expect(screen.getAllByText("Skubase").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("KMR Group").length).toBeGreaterThan(0);
     expect(screen.getByRole("navigation", { name: "Main navigation" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Global quick search")).toBeInTheDocument();
   });
 
   it("toggles sidebar drawer when mobile hamburger menu is clicked", async () => {
@@ -47,6 +48,51 @@ describe("AppShell", () => {
     const closeBtn = screen.getByRole("button", { name: "Close navigation" });
     await user.click(closeBtn);
     expect(sidebar.className).toContain("-translate-x-full");
+  });
+
+  it("opens quick action menu and shows creation links", async () => {
+    const user = userEvent.setup();
+    render(
+      <AppShell>
+        <div>Content</div>
+      </AppShell>
+    );
+
+    const quickActionBtn = screen.getByRole("button", { name: "Quick action menu" });
+    await user.click(quickActionBtn);
+
+    expect(screen.getByText("New Sale / Invoice")).toBeInTheDocument();
+    expect(screen.getByText("New Alignment Job")).toBeInTheDocument();
+  });
+
+  it("opens notifications popup with alert cards", async () => {
+    const user = userEvent.setup();
+    render(
+      <AppShell>
+        <div>Content</div>
+      </AppShell>
+    );
+
+    const notifBtn = screen.getByRole("button", { name: "Notifications" });
+    await user.click(notifBtn);
+
+    expect(screen.getByText("Operational Alerts")).toBeInTheDocument();
+    expect(screen.getByText("Low Tyre Stock Alert")).toBeInTheDocument();
+  });
+
+  it("opens user account menu and displays role info and sign out button", async () => {
+    const user = userEvent.setup();
+    render(
+      <AppShell>
+        <div>Content</div>
+      </AppShell>
+    );
+
+    const userMenuBtn = screen.getByRole("button", { name: "User account" });
+    await user.click(userMenuBtn);
+
+    expect(screen.getByText("admin@skubase.local")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
   });
 
   it("renders only children without sidebar or header on /login", async () => {

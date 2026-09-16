@@ -1,12 +1,13 @@
 "use client";
 
+import Image from "next/image";
 import { useState, Suspense, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { isSafeRedirectUrl } from "@/lib/auth/csrf";
 
 // =============================================================================
-// Login Page — Skubase Business Authentication
+// Login Page — KMR Group Business Authentication
 // =============================================================================
 
 function LoginForm() {
@@ -160,7 +161,7 @@ function LoginForm() {
           disabled={isLoading || !identifier || !password}
           className="w-full"
         >
-          {isLoading ? "Signing in..." : "Sign in to Skubase"}
+          {isLoading ? "Signing in..." : "Sign in to KMR Group"}
         </Button>
       </div>
     </form>
@@ -171,9 +172,19 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-surface-50">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <h1 className="text-3xl font-extrabold text-primary-600 tracking-tight">Skubase</h1>
-        <h2 className="mt-2 text-base text-surface-600 font-medium">
-          Tyre Business Management System
+        <div className="flex justify-center mb-3">
+          <Image
+            src="/kmr-logo.png"
+            alt="KMR Group Logo"
+            width={140}
+            height={90}
+            priority
+            className="h-20 w-auto object-contain drop-shadow-md"
+          />
+        </div>
+        <h1 className="text-2xl font-black text-surface-900 tracking-tight">KMR Group</h1>
+        <h2 className="mt-1 text-sm text-surface-500 font-medium">
+          Tyre & Automotive Business Operations
         </h2>
       </div>
 

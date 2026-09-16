@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge, type BadgeVariant } from "@/components/ui/StatusBadge";
+import { NavIcon } from "@/components/ui/NavIcon";
 import type { ClaimStatus, ClaimResolutionType } from "@prisma/client";
 import type { WarrantyClaimView } from "@/lib/types/warranty";
 
@@ -263,7 +264,7 @@ export default function WarrantyClaimDetailPage({
               <Button
                 variant="primary"
                 size="sm"
-                className="font-bold"
+                className="font-bold inline-flex items-center gap-1.5"
                 onClick={() => {
                   setTargetStatus("UNDER_REVIEW");
                   setStatusNotes("");
@@ -271,7 +272,8 @@ export default function WarrantyClaimDetailPage({
                   setIsStatusModalOpen(true);
                 }}
               >
-                📝 Submit for Brand Review
+                <NavIcon name="file-text" className="w-4 h-4" />
+                <span>Submit for Brand Review</span>
               </Button>
               <Button
                 variant="danger"
@@ -294,7 +296,7 @@ export default function WarrantyClaimDetailPage({
               <Button
                 variant="primary"
                 size="sm"
-                className="font-bold bg-emerald-600 hover:bg-emerald-700"
+                className="font-bold bg-emerald-600 hover:bg-emerald-700 inline-flex items-center gap-1.5"
                 onClick={() => {
                   setTargetStatus("APPROVED");
                   setStatusNotes("");
@@ -302,12 +304,13 @@ export default function WarrantyClaimDetailPage({
                   setIsStatusModalOpen(true);
                 }}
               >
-                ✓ Approve Claim
+                <NavIcon name="check" className="w-4 h-4" />
+                <span>Approve Claim</span>
               </Button>
               <Button
                 variant="danger"
                 size="sm"
-                className="font-semibold"
+                className="font-semibold inline-flex items-center gap-1.5"
                 onClick={() => {
                   setTargetStatus("REJECTED");
                   setStatusNotes("");
@@ -315,7 +318,8 @@ export default function WarrantyClaimDetailPage({
                   setIsStatusModalOpen(true);
                 }}
               >
-                ✕ Reject Claim
+                <NavIcon name="close" className="w-4 h-4" />
+                <span>Reject Claim</span>
               </Button>
               <Button
                 variant="secondary"
@@ -337,7 +341,7 @@ export default function WarrantyClaimDetailPage({
               <Button
                 variant="primary"
                 size="sm"
-                className="font-bold bg-primary-600 hover:bg-primary-700"
+                className="font-bold bg-primary-600 hover:bg-primary-700 inline-flex items-center gap-1.5"
                 onClick={() => {
                   setReplacementQty(claim.quantity);
                   setReplacementNotes("");
@@ -345,7 +349,8 @@ export default function WarrantyClaimDetailPage({
                   setIsReplacementModalOpen(true);
                 }}
               >
-                🎁 Issue Replacement (Deduct Stock)
+                <NavIcon name="inventory" className="w-4 h-4" />
+                <span>Issue Replacement (Deduct Stock)</span>
               </Button>
               <Button
                 variant="secondary"
@@ -368,9 +373,12 @@ export default function WarrantyClaimDetailPage({
       {/* Success Notification */}
       {successMessage && (
         <div className="p-3.5 rounded-md bg-success-50 border border-success-200 text-success-800 text-xs font-semibold flex items-center justify-between">
-          <span>✓ {successMessage}</span>
-          <button onClick={() => setSuccessMessage(null)} className="text-success-900 font-bold ml-2">
-            ✕
+          <span className="flex items-center gap-1.5">
+            <NavIcon name="check" className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{successMessage}</span>
+          </span>
+          <button onClick={() => setSuccessMessage(null)} className="p-1 text-success-900 hover:bg-success-100 rounded">
+            <NavIcon name="close" className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
@@ -657,13 +665,16 @@ export default function WarrantyClaimDetailPage({
               Issue Warranty Replacement Tyre
             </h2>
 
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded text-amber-900 text-xs leading-relaxed font-medium">
-              ⚠️ <strong>Inventory Action:</strong> Confirming this replacement will immediately
-              deduct <strong>{replacementQty} unit(s)</strong> of{" "}
-              <strong>
-                {claim.productBrand} {claim.productSize}
-              </strong>{" "}
-              from current store stock and mark the warranty claim as <strong>RESOLVED</strong>.
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded text-amber-900 text-xs leading-relaxed font-medium flex items-start gap-2">
+              <span className="shrink-0 text-amber-600 font-bold">!</span>
+              <div>
+                <strong>Inventory Action:</strong> Confirming this replacement will immediately
+                deduct <strong>{replacementQty} unit(s)</strong> of{" "}
+                <strong>
+                  {claim.productBrand} {claim.productSize}
+                </strong>{" "}
+                from current store stock and mark the warranty claim as <strong>RESOLVED</strong>.
+              </div>
             </div>
 
             {replacementError && (

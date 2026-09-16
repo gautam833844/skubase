@@ -460,7 +460,7 @@ export default function NewSalePage() {
                           }`}
                         >
                           {rowCalc.isStockLow
-                            ? `⚠️ Only ${rowCalc.stockOnHand} currently available in physical stock.`
+                            ? `Low stock: Only ${rowCalc.stockOnHand} available in physical stock.`
                             : `Physical Stock: ${rowCalc.stockOnHand} available`}
                         </span>
                       )}

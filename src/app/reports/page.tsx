@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { NavIcon } from "@/components/ui/NavIcon";
 import type {
   StockValuationReport,
   LowStockAlertsReport,
@@ -144,49 +145,53 @@ export default function ReportsPage() {
           <button
             type="button"
             onClick={() => setActiveTab("stock")}
-            className={`py-3 px-3 text-xs font-semibold whitespace-nowrap border-b-2 cursor-pointer transition-colors ${
+            className={`inline-flex items-center gap-1.5 py-3 px-3 text-xs font-semibold whitespace-nowrap border-b-2 cursor-pointer transition-colors ${
               activeTab === "stock"
                 ? "border-primary-600 text-primary-700 bg-primary-50/50 rounded-t"
                 : "border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300"
             }`}
           >
-            📦 Stock Valuation & Status
+            <NavIcon name="inventory" className="w-4 h-4" />
+            <span>Stock Valuation & Status</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab("low_stock")}
-            className={`py-3 px-3 text-xs font-semibold whitespace-nowrap border-b-2 cursor-pointer transition-colors ${
+            className={`inline-flex items-center gap-1.5 py-3 px-3 text-xs font-semibold whitespace-nowrap border-b-2 cursor-pointer transition-colors ${
               activeTab === "low_stock"
                 ? "border-primary-600 text-primary-700 bg-primary-50/50 rounded-t"
                 : "border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300"
             }`}
           >
-            ⚠️ Low Stock Alerts
+            <NavIcon name="alert-triangle" className="w-4 h-4" />
+            <span>Low Stock Alerts</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab("sales")}
-            className={`py-3 px-3 text-xs font-semibold whitespace-nowrap border-b-2 cursor-pointer transition-colors ${
+            className={`inline-flex items-center gap-1.5 py-3 px-3 text-xs font-semibold whitespace-nowrap border-b-2 cursor-pointer transition-colors ${
               activeTab === "sales"
                 ? "border-primary-600 text-primary-700 bg-primary-50/50 rounded-t"
                 : "border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300"
             }`}
           >
-            💰 Sales & Profit Summary
+            <NavIcon name="sales" className="w-4 h-4" />
+            <span>Sales & Profit Summary</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab("movements")}
-            className={`py-3 px-3 text-xs font-semibold whitespace-nowrap border-b-2 cursor-pointer transition-colors ${
+            className={`inline-flex items-center gap-1.5 py-3 px-3 text-xs font-semibold whitespace-nowrap border-b-2 cursor-pointer transition-colors ${
               activeTab === "movements"
                 ? "border-primary-600 text-primary-700 bg-primary-50/50 rounded-t"
                 : "border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300"
             }`}
           >
-            📋 Stock Movement Ledger
+            <NavIcon name="clipboard" className="w-4 h-4" />
+            <span>Stock Movement Ledger</span>
           </button>
         </nav>
       </div>
@@ -465,8 +470,9 @@ export default function ReportsPage() {
                 </div>
 
                 {lowStockData.items.length === 0 ? (
-                  <div className="p-8 text-center text-xs text-success-700 font-semibold bg-success-50/40">
-                    ✓ All tyre products are currently well-stocked above their minimum thresholds!
+                  <div className="p-8 text-center text-xs text-success-700 font-semibold bg-success-50/40 flex items-center justify-center gap-2">
+                    <NavIcon name="check" className="w-4 h-4 text-success-600" />
+                    <span>All tyre products are currently well-stocked above their minimum thresholds!</span>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">

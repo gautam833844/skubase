@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { NavIcon } from "@/components/ui/NavIcon";
 import type { ShopSettingView } from "@/lib/types/shop";
 
 export default function SettingsPage() {
@@ -133,7 +134,7 @@ export default function SettingsPage() {
             Shop & Business Settings
           </h1>
           <p className="text-xs text-surface-500 mt-1">
-            Configure business identity, contact details, and receipt notices used across Skubase bills and documents.
+            Configure business identity, contact details, and receipt notices used across KMR Group bills and documents.
           </p>
         </div>
 
@@ -145,8 +146,9 @@ export default function SettingsPage() {
         )}
 
         {successMessage && (
-          <div className="p-4 bg-success-50 text-success-800 text-xs font-bold rounded-lg border border-success-200">
-            ✓ {successMessage}
+          <div className="p-4 bg-success-50 text-success-800 text-xs font-bold rounded-lg border border-success-200 flex items-center gap-2">
+            <NavIcon name="check" className="w-4 h-4 text-success-600 shrink-0" />
+            <span>{successMessage}</span>
           </div>
         )}
 
@@ -174,7 +176,7 @@ export default function SettingsPage() {
                     maxLength={120}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Skubase Tyre Hub"
+                    placeholder="e.g. KMR Group Tyre & Auto Care"
                     className="w-full px-3 py-2 text-xs border border-surface-300 rounded focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                   />
                 </div>
@@ -243,7 +245,7 @@ export default function SettingsPage() {
                     maxLength={100}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="e.g. sales@skubasetyres.com"
+                    placeholder="e.g. sales@kmrgroup.local"
                     className="w-full px-3 py-2 text-xs border border-surface-300 rounded focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                   />
                 </div>
@@ -258,7 +260,7 @@ export default function SettingsPage() {
                     maxLength={150}
                     value={website}
                     onChange={(e) => setWebsite(e.target.value)}
-                    placeholder="e.g. https://skubasetyres.com"
+                    placeholder="e.g. https://kmrgroup.local"
                     className="w-full px-3 py-2 text-xs border border-surface-300 rounded focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                   />
                 </div>

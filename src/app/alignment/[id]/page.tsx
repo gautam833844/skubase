@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { NavIcon } from "@/components/ui/NavIcon";
 import type { AlignmentBillView } from "@/lib/types/alignment";
 import type { ShopSettingView } from "@/lib/types/shop";
 
@@ -159,9 +160,10 @@ export default function AlignmentBillDetailPage({
             variant="primary"
             size="sm"
             onClick={() => window.print()}
-            className="cursor-pointer"
+            className="cursor-pointer inline-flex items-center gap-1.5"
           >
-            🖨️ Print Bill
+            <NavIcon name="printer" className="w-4 h-4" />
+            <span>Print Bill</span>
           </Button>
           <a
             href={`/api/alignment/${bill.id}/pdf`}
@@ -169,8 +171,9 @@ export default function AlignmentBillDetailPage({
             rel="noreferrer"
             className="inline-block"
           >
-            <Button variant="secondary" size="sm" className="cursor-pointer">
-              ⬇️ Download PDF
+            <Button variant="secondary" size="sm" className="cursor-pointer inline-flex items-center gap-1.5">
+              <NavIcon name="download" className="w-4 h-4" />
+              <span>Download PDF</span>
             </Button>
           </a>
         </div>

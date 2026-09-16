@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge, type BadgeVariant } from "@/components/ui/StatusBadge";
+import { NavIcon } from "@/components/ui/NavIcon";
 import type { SaleStatus, PaymentStatus, PaymentMethod } from "@prisma/client";
 import type { SalePaymentDetails } from "@/lib/types/payments";
 import type { SaleReturnView, SaleReturnableItemView } from "@/lib/types/returns";
@@ -512,8 +513,9 @@ export default function SaleDetailPage({
           {sale.status === "COMPLETED" && (
             <>
               <Link href={`/sales/${sale.id}/receipt`}>
-                <Button variant="outline" size="sm" className="cursor-pointer font-semibold">
-                  📄 View Receipt / Bill
+                <Button variant="outline" size="sm" className="cursor-pointer font-semibold inline-flex items-center gap-1.5">
+                  <NavIcon name="file-text" className="w-3.5 h-3.5 text-surface-500" />
+                  View Receipt / Bill
                 </Button>
               </Link>
               {remainingBalanceNum > 0 && (
@@ -528,9 +530,10 @@ export default function SaleDetailPage({
                     setPaymentNotes("");
                     setIsPaymentModalOpen(true);
                   }}
-                  className="bg-emerald-600 hover:bg-emerald-700 font-bold cursor-pointer"
+                  className="bg-emerald-600 hover:bg-emerald-700 font-bold cursor-pointer inline-flex items-center gap-1.5"
                 >
-                  + Record Payment
+                  <NavIcon name="plus" className="w-3.5 h-3.5" />
+                  Record Payment
                 </Button>
               )}
               <Button
@@ -547,9 +550,12 @@ export default function SaleDetailPage({
                   setRefundOption("PENDING");
                   setIsReturnModalOpen(true);
                 }}
-                className="cursor-pointer font-semibold text-surface-700 hover:text-surface-900 border-surface-300"
+                className="cursor-pointer font-semibold text-surface-700 hover:text-surface-900 border-surface-300 inline-flex items-center gap-1.5"
               >
-                ↩️ Process Return {totalReturnableUnits > 0 && `(${totalReturnableUnits} eligible)`}
+                <svg className="w-3.5 h-3.5 text-surface-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                </svg>
+                Process Return {totalReturnableUnits > 0 && `(${totalReturnableUnits} eligible)`}
               </Button>
               <Button
                 variant="outline"
@@ -563,9 +569,10 @@ export default function SaleDetailPage({
                   setWarrantyExternalRef("");
                   setIsWarrantyModalOpen(true);
                 }}
-                className="cursor-pointer font-semibold text-surface-700 hover:text-surface-900 border-surface-300"
+                className="cursor-pointer font-semibold text-surface-700 hover:text-surface-900 border-surface-300 inline-flex items-center gap-1.5"
               >
-                🛡️ Create Warranty Claim
+                <NavIcon name="warranty" className="w-3.5 h-3.5 text-surface-500" />
+                Create Warranty Claim
               </Button>
             </>
           )}
@@ -966,7 +973,7 @@ export default function SaleDetailPage({
                 ) : (
                   <tr>
                     <td colSpan={6} className="px-4 py-6 text-center text-xs text-surface-500">
-                      No warranty claims logged for this sale. Click &quot;🛡️ Create Warranty Claim&quot; if a tyre has a suspected defect.
+                      No warranty claims logged for this sale. Click &quot;Create Warranty Claim&quot; if a tyre has a suspected defect.
                     </td>
                   </tr>
                 )}
@@ -1062,15 +1069,20 @@ export default function SaleDetailPage({
 
       {/* Status Notice */}
       {sale.status === "DRAFT" ? (
-        <div className="p-3.5 bg-warning-50 rounded border border-warning-200 text-xs text-warning-900">
-          <span className="font-bold">📝 Draft Status:</span> This record is currently in Draft.
-          Physical stock has NOT been deducted. Click{" "}
-          <span className="font-bold">&quot;Confirm Sale (Deduct Stock)&quot;</span> above to finalize.
+        <div className="p-3.5 bg-warning-50 rounded border border-warning-200 text-xs text-warning-900 flex items-start gap-2">
+          <span className="font-bold shrink-0">Note:</span>
+          <div>
+            <strong>Draft Status:</strong> This record is currently in Draft.
+            Physical stock has NOT been deducted. Click{" "}
+            <span className="font-bold">&quot;Confirm Sale (Deduct Stock)&quot;</span> above to finalize.
+          </div>
         </div>
       ) : sale.status === "COMPLETED" ? (
-        <div className="p-3.5 bg-success-50 rounded border border-success-200 text-xs text-success-900">
-          <span className="font-bold">✅ Sale Completed:</span> Physical stock has been deducted
-          from the warehouse inventory.
+        <div className="p-3.5 bg-success-50 rounded border border-success-200 text-xs text-success-900 flex items-start gap-2">
+          <NavIcon name="check" className="w-4 h-4 text-success-600 shrink-0 mt-0.5" />
+          <div>
+            <strong>Sale Completed:</strong> Physical stock has been deducted from the warehouse inventory.
+          </div>
         </div>
       ) : null}
 
@@ -1238,8 +1250,8 @@ export default function SaleDetailPage({
               </div>
 
               {/* Inventory Restoration Warning */}
-              <div className="p-3 bg-blue-50 text-blue-900 text-xs rounded border border-blue-200">
-                <span className="font-bold">⚠️ Inventory Safety Notice:</span> Confirming this return will
+              <div className="p-3 bg-primary-50 text-primary-900 text-xs rounded-lg border border-primary-200 flex items-start gap-2">
+                <span className="font-bold">Inventory Safety Notice:</span> Confirming this return will
                 automatically increment warehouse stock for all items marked <strong>&quot;Sellable&quot;</strong> and create an
                 immutable <strong>SALE_RETURN</strong> inventory ledger entry. Historical sale numbers and original payment
                 receipts remain preserved.
@@ -1432,7 +1444,7 @@ export default function SaleDetailPage({
                 </ul>
               </div>
               <p className="text-warning-800 font-medium">
-                ⚠️ Once finalized, stock cannot be restored without a formal return workflow.
+                Note: Once finalized, stock cannot be restored without a formal return workflow.
               </p>
             </div>
 

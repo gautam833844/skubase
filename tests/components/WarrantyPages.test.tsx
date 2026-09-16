@@ -119,7 +119,7 @@ describe("Warranty UI Component Tests", () => {
       });
 
       // Click "Submit for Brand Review" button
-      const reviewButton = screen.getByRole("button", { name: "📝 Submit for Brand Review" });
+      const reviewButton = screen.getByRole("button", { name: /Submit for Brand Review/i });
       await user.click(reviewButton);
 
       expect(screen.getByRole("heading", { level: 2, name: "Submit Claim for Brand Review" })).toBeDefined();

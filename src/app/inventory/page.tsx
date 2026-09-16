@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { NavIcon } from "@/components/ui/NavIcon";
 import { CONTROLLED_ADJUSTMENT_REASONS, type AdjustmentType } from "@/lib/types/inventory";
 
 interface ProductItem {
@@ -407,13 +408,14 @@ export default function InventoryPage() {
             <button
               type="button"
               onClick={() => setLowStockFilter((prev) => !prev)}
-              className={`flex-1 px-3 py-2 text-xs font-medium rounded-md border transition-colors cursor-pointer ${
+              className={`flex-1 px-3 py-2 text-xs font-medium rounded-md border transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
                 lowStockFilter
                   ? "bg-warning-100 border-warning-400 text-warning-800 font-bold"
                   : "bg-surface-50 border-surface-300 text-surface-600 hover:bg-surface-100"
               }`}
             >
-              {lowStockFilter ? "⚠️ Low Stock Filter Active" : "Filter Low Stock"}
+              {lowStockFilter && <NavIcon name="alert-triangle" className="w-3.5 h-3.5 text-warning-700" />}
+              <span>{lowStockFilter ? "Low Stock Filter Active" : "Filter Low Stock"}</span>
             </button>
             <select
               value={statusFilter}

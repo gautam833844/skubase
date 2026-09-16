@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge, type BadgeVariant } from "@/components/ui/StatusBadge";
+import { NavIcon } from "@/components/ui/NavIcon";
 import type { PurchaseOrderStatus } from "@prisma/client";
 
 interface PODetailView {
@@ -344,8 +345,9 @@ export default function PurchaseOrderDetailPage({
             </Button>
           )}
           {canReceive && (
-            <Button variant="primary" size="sm" onClick={openReceiveModal} className="cursor-pointer">
-              📦 Receive Goods
+            <Button variant="primary" size="sm" onClick={openReceiveModal} className="cursor-pointer inline-flex items-center gap-1.5">
+              <NavIcon name="box" className="w-3.5 h-3.5" />
+              Receive Goods
             </Button>
           )}
         </div>
@@ -628,7 +630,7 @@ export default function PurchaseOrderDetailPage({
               </div>
 
               <div className="p-3 bg-primary-50/60 rounded border border-primary-200 text-xs text-primary-900">
-                <span className="font-bold">⚠️ Inventory Impact:</span> Confirming this receipt will
+                <span className="font-bold">Inventory Impact:</span> Confirming this receipt will
                 immediately increase physical stock on hand and recalculate moving weighted-average costs.
               </div>
 

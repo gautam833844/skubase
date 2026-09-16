@@ -21,11 +21,19 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Skubase — Tyre Business Management",
-    template: "%s | Skubase",
+    default: "KMR Group — Tyre & Automotive Business Management",
+    template: "%s | KMR Group",
   },
   description:
-    "Comprehensive tyre business management — inventory, sales, purchases, customers, and more.",
+    "KMR Group — Comprehensive tyre business management, inventory, sales, alignment services, and customer care.",
+  icons: {
+    icon: [
+      { url: "/kmr-logo.png", href: "/kmr-logo.png" },
+      { url: "/logo.png", href: "/logo.png" },
+    ],
+    shortcut: "/kmr-logo.png",
+    apple: "/kmr-logo.png",
+  },
   robots: {
     index: false,
     follow: false,

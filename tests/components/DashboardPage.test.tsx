@@ -25,7 +25,7 @@ describe("DashboardPage Component Tests (V1.1)", () => {
 
   it("renders the welcome heading", async () => {
     render(<DashboardPage />);
-    expect(screen.getByText("Welcome to Skubase")).toBeInTheDocument();
+    expect(screen.getByText("Welcome to KMR Group")).toBeInTheDocument();
     await screen.findByText("Business Performance");
   });
 

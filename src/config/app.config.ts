@@ -9,7 +9,7 @@
  */
 export const appConfig = {
   /** Application display name */
-  name: "Skubase",
+  name: "KMR Group",
 
   /** Application version (from package.json) */
   version: "0.1.0",

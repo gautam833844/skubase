@@ -235,7 +235,7 @@ describe("SaleDetailPage UI Component", () => {
     });
 
     // Verify Record Payment button exists for partially paid sale
-    const recordPaymentBtn = screen.getByRole("button", { name: "+ Record Payment" });
+    const recordPaymentBtn = screen.getByRole("button", { name: /Record Payment/i });
     await user.click(recordPaymentBtn);
 
     expect(screen.getByRole("heading", { level: 2, name: "Record Customer Payment" })).toBeDefined();
