@@ -130,31 +130,33 @@ describe("Alignment & Service Billing Service Unit Tests", () => {
       vi.mocked(db.alignmentBill.findUnique).mockResolvedValue(null);
 
       let capturedData: any = null;
-      vi.mocked(db.alignmentBill.create).mockImplementation(async (args: any) => {
-        capturedData = args.data;
-        return {
-          id: "aln-custom-1",
-          billNumber: args.data.billNumber,
-          documentType: args.data.documentType,
-          date: args.data.date,
-          customerId: null,
-          customerName: args.data.customerName,
-          phoneNumber: args.data.phoneNumber,
-          vehicleNumber: args.data.vehicleNumber,
-          kilometers: args.data.kilometers,
-          totalAmount: args.data.totalAmount,
-          status: args.data.status,
-          notes: args.data.notes,
-          createdById: args.data.createdById,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          createdBy: { id: "admin-1", fullName: "Admin User", username: "admin" },
-          items: args.data.items.create.map((item: any, idx: number) => ({
-            id: `item-${idx + 1}`,
-            ...item,
-          })),
-        } as any;
-      });
+      vi.mocked(db.alignmentBill.create).mockImplementation(
+        (async (args: any) => {
+          capturedData = args.data;
+          return {
+            id: "aln-custom-1",
+            billNumber: args.data.billNumber,
+            documentType: args.data.documentType,
+            date: args.data.date,
+            customerId: null,
+            customerName: args.data.customerName,
+            phoneNumber: args.data.phoneNumber,
+            vehicleNumber: args.data.vehicleNumber,
+            kilometers: args.data.kilometers,
+            totalAmount: args.data.totalAmount,
+            status: args.data.status,
+            notes: args.data.notes,
+            createdById: args.data.createdById,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            createdBy: { id: "admin-1", fullName: "Admin User", username: "admin" },
+            items: args.data.items.create.map((item: any, idx: number) => ({
+              id: `item-${idx + 1}`,
+              ...item,
+            })),
+          };
+        }) as unknown as typeof db.alignmentBill.create
+      );
 
       const result = await createAlignmentBill(
         {
