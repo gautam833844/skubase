@@ -19,14 +19,57 @@ import type {
  * Generates the next sequential number for an Alignment document.
  * Estimates: EST-1001, EST-1002...
  * Bills:     ALN-1001, ALN-1002...
+ * Guarantees that deleted bill numbers are consumed and never reused.
  */
 export async function generateNextAlignmentNumber(documentType: AlignmentDocType): Promise<string> {
   const prefix = documentType === "ESTIMATE" ? "EST" : "ALN";
-  const count = await db.alignmentBill.count({
+
+  // Find max sequence number from existing bills
+  const bills = await db.alignmentBill.findMany({
     where: { documentType },
+    select: { billNumber: true },
   });
 
-  const nextSeq = 1001 + count;
+  let maxSeq = 1000;
+  const prefixRegex = new RegExp(`^${prefix}-(\\d+)$`);
+
+  for (const b of bills) {
+    const match = b.billNumber.match(prefixRegex);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (!isNaN(num) && num > maxSeq) {
+        maxSeq = num;
+      }
+    }
+  }
+
+  // Also check audit logs to ensure deleted bill numbers are never reused
+  try {
+    const auditLogs = await db.auditLog.findMany({
+      where: { entityName: "AlignmentBill" },
+      select: { newState: true, oldState: true },
+    });
+
+    for (const log of auditLogs) {
+      const states = [log.newState, log.oldState];
+      for (const st of states) {
+        if (st && typeof st === "object" && "billNumber" in st) {
+          const bn = String((st as any).billNumber);
+          const match = bn.match(prefixRegex);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num > maxSeq) {
+              maxSeq = num;
+            }
+          }
+        }
+      }
+    }
+  } catch {
+    // If audit log query fails for any reason, continue with maxSeq from bills
+  }
+
+  const nextSeq = maxSeq + 1;
   let candidate = `${prefix}-${nextSeq}`;
 
   let exists = await db.alignmentBill.findUnique({ where: { billNumber: candidate } });
@@ -363,6 +406,93 @@ export async function voidAlignmentBill(id: string, actor: AuthActor): Promise<A
   });
 
   return formatAlignmentBillView(updated);
+}
+
+/**
+ * Permanently deletes one or more Alignment Bills/Estimates (Restricted to ADMIN_OWNER).
+ * - Cascade removes associated AlignmentBillItem records.
+ * - Customer, Product, Sale, Inventory, and other modules remain untouched.
+ * - Records an audit log for each deleted document.
+ */
+export async function deleteAlignmentBills(
+  ids: string[],
+  actor: AuthActor
+): Promise<{ count: number; deletedIds: string[] }> {
+  if (actor.role !== "ADMIN_OWNER") {
+    throw new AppError(
+      "AUTHORIZATION",
+      `Actor ${actor.id} with role ${actor.role} cannot delete alignment documents`,
+      "Only administrators can permanently delete alignment documents."
+    );
+  }
+
+  if (!Array.isArray(ids) || ids.length === 0) {
+    throw new AppError(
+      "VALIDATION",
+      "No alignment bill IDs provided for deletion",
+      "Please select at least one alignment document to delete."
+    );
+  }
+
+  const cleanIds = Array.from(new Set(ids.map((id) => String(id).trim()).filter(Boolean)));
+  if (cleanIds.length === 0) {
+    throw new AppError(
+      "VALIDATION",
+      "Invalid alignment bill IDs provided",
+      "Please select valid alignment documents to delete."
+    );
+  }
+
+  const targetBills = await db.alignmentBill.findMany({
+    where: { id: { in: cleanIds } },
+    select: {
+      id: true,
+      billNumber: true,
+      documentType: true,
+      customerName: true,
+      totalAmount: true,
+    },
+  });
+
+  if (targetBills.length === 0) {
+    throw new AppError(
+      "NOT_FOUND",
+      "No matching alignment bills found for deletion",
+      "The selected alignment documents could not be found."
+    );
+  }
+
+  const matchedIds = targetBills.map((b) => b.id);
+
+  return await db.$transaction(async (tx) => {
+    // 1. Delete AlignmentBill records (AlignmentBillItem will cascade delete)
+    const deleteResult = await tx.alignmentBill.deleteMany({
+      where: { id: { in: matchedIds } },
+    });
+
+    // 2. Create AuditLog records for each deleted bill
+    for (const bill of targetBills) {
+      await tx.auditLog.create({
+        data: {
+          actorId: actor.id,
+          entityName: "AlignmentBill",
+          entityId: bill.id,
+          action: "ALIGNMENT_BILL_DELETED",
+          oldState: {
+            billNumber: bill.billNumber,
+            documentType: bill.documentType,
+            customerName: bill.customerName,
+            totalAmount: bill.totalAmount.toString(),
+          },
+        },
+      });
+    }
+
+    return {
+      count: deleteResult.count,
+      deletedIds: matchedIds,
+    };
+  });
 }
 
 /**

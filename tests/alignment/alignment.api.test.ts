@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { GET as getBills, POST as createBill } from "@/app/api/alignment/route";
+import { GET as getBills, POST as createBill, DELETE as deleteBills } from "@/app/api/alignment/route";
 import { GET as getSingleBill } from "@/app/api/alignment/[id]/route";
 import { POST as voidBillRoute } from "@/app/api/alignment/[id]/void/route";
 import { GET as getPdf } from "@/app/api/alignment/[id]/pdf/route";
@@ -227,6 +227,74 @@ describe("Alignment Billing API Route Tests", () => {
     expect(res.status).toBe(200);
     expect(data.success).toBe(true);
     expect(data.data.status).toBe(AlignmentBillStatus.VOIDED);
+  });
+
+  it("DELETE /api/alignment permanently deletes selected documents for Admin", async () => {
+    vi.spyOn(alignmentService, "deleteAlignmentBills").mockResolvedValue({
+      count: 2,
+      deletedIds: ["aln-1", "aln-2"],
+    });
+
+    const req = new Request("http://localhost:3000/api/alignment", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        host: "localhost:3000",
+        origin: "http://localhost:3000",
+      },
+      body: JSON.stringify({ ids: ["aln-1", "aln-2"] }),
+    });
+
+    const res = await deleteBills(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(data.data.count).toBe(2);
+    expect(alignmentService.deleteAlignmentBills).toHaveBeenCalledWith(["aln-1", "aln-2"], mockUser.user);
+  });
+
+  it("DELETE /api/alignment rejects non-admin users with 403", async () => {
+    vi.spyOn(authContext, "requireAuth").mockResolvedValue({
+      user: { id: "staff-1", role: "STAFF" as const, isActive: true },
+      session: { id: "s-2", tokenHash: "token2", expiresAt: new Date(), userId: "staff-1", createdAt: new Date() },
+    } as unknown as AuthenticatedUserContext);
+
+    const req = new Request("http://localhost:3000/api/alignment", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        host: "localhost:3000",
+        origin: "http://localhost:3000",
+      },
+      body: JSON.stringify({ ids: ["aln-1"] }),
+    });
+
+    const res = await deleteBills(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(data.success).toBe(false);
+    expect(data.error).toContain("Only administrators");
+  });
+
+  it("DELETE /api/alignment rejects invalid CSRF origin", async () => {
+    const req = new Request("http://localhost:3000/api/alignment", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        host: "localhost:3000",
+        origin: "http://malicious-site.com",
+      },
+      body: JSON.stringify({ ids: ["aln-1"] }),
+    });
+
+    const res = await deleteBills(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(data.success).toBe(false);
+    expect(data.error).toBe("Invalid request origin.");
   });
 
   it("GET /api/alignment/[id]/pdf returns binary PDF stream with headers", async () => {

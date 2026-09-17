@@ -5,6 +5,7 @@ import {
   getAlignmentBillById,
   generateNextAlignmentNumber,
   voidAlignmentBill,
+  deleteAlignmentBills,
   generateAlignmentPdf,
 } from "@/services/alignment.service";
 import { db } from "@/lib/db";
@@ -21,9 +22,11 @@ vi.mock("@/lib/db", () => {
         findMany: vi.fn(),
         create: vi.fn(),
         update: vi.fn(),
+        deleteMany: vi.fn(),
       },
       auditLog: {
         create: vi.fn(),
+        findMany: vi.fn(),
       },
       shopSetting: {
         findFirst: vi.fn(),
@@ -44,19 +47,43 @@ describe("Alignment & Service Billing Service Unit Tests", () => {
 
   describe("Sequential Number Generation", () => {
     it("generates EST-1001 for first estimate", async () => {
-      vi.mocked(db.alignmentBill.count).mockResolvedValue(0);
+      vi.mocked(db.alignmentBill.findMany).mockResolvedValue([]);
+      vi.mocked(db.auditLog.findMany).mockResolvedValue([]);
       vi.mocked(db.alignmentBill.findUnique).mockResolvedValue(null);
 
       const num = await generateNextAlignmentNumber(AlignmentDocType.ESTIMATE);
       expect(num).toBe("EST-1001");
     });
 
-    it("generates ALN-1005 for 5th bill", async () => {
-      vi.mocked(db.alignmentBill.count).mockResolvedValue(4);
+    it("generates ALN-1005 when highest existing bill is ALN-1004", async () => {
+      vi.mocked(db.alignmentBill.findMany).mockResolvedValue([
+        { billNumber: "ALN-1001" },
+        { billNumber: "ALN-1004" },
+      ] as any);
+      vi.mocked(db.auditLog.findMany).mockResolvedValue([]);
       vi.mocked(db.alignmentBill.findUnique).mockResolvedValue(null);
 
       const num = await generateNextAlignmentNumber(AlignmentDocType.BILL);
       expect(num).toBe("ALN-1005");
+    });
+
+    it("does not reuse deleted bill numbers found in audit logs", async () => {
+      // Suppose ALN-1003 was deleted, so existing bills only have ALN-1001, ALN-1002
+      vi.mocked(db.alignmentBill.findMany).mockResolvedValue([
+        { billNumber: "ALN-1001" },
+        { billNumber: "ALN-1002" },
+      ] as any);
+      // Audit log records that ALN-1003 was previously created / deleted
+      vi.mocked(db.auditLog.findMany).mockResolvedValue([
+        {
+          newState: { billNumber: "ALN-1003" },
+          oldState: null,
+        },
+      ] as any);
+      vi.mocked(db.alignmentBill.findUnique).mockResolvedValue(null);
+
+      const num = await generateNextAlignmentNumber(AlignmentDocType.BILL);
+      expect(num).toBe("ALN-1004");
     });
 
     it("verifies all 11 default service presets have defaultQuantity of 0", async () => {
@@ -331,6 +358,48 @@ describe("Alignment & Service Billing Service Unit Tests", () => {
     it("denies MANAGER and STAFF from voiding an alignment bill", async () => {
       await expect(voidAlignmentBill("aln-1", managerActor)).rejects.toThrowError(AppError);
       await expect(voidAlignmentBill("aln-1", staffActor)).rejects.toThrowError(AppError);
+    });
+
+    it("allows ADMIN_OWNER to permanently delete alignment bills in bulk", async () => {
+      vi.mocked(db.alignmentBill.findMany).mockResolvedValue([
+        {
+          id: "aln-1",
+          billNumber: "ALN-1001",
+          documentType: AlignmentDocType.BILL,
+          customerName: "Ramesh",
+          totalAmount: new Prisma.Decimal(500),
+        },
+        {
+          id: "aln-2",
+          billNumber: "ALN-1002",
+          documentType: AlignmentDocType.BILL,
+          customerName: "Suresh",
+          totalAmount: new Prisma.Decimal(300),
+        },
+      ] as any);
+      vi.mocked(db.alignmentBill.deleteMany).mockResolvedValue({ count: 2 });
+
+      const result = await deleteAlignmentBills(["aln-1", "aln-2"], adminActor);
+      expect(result.count).toBe(2);
+      expect(result.deletedIds).toEqual(["aln-1", "aln-2"]);
+      expect(db.alignmentBill.deleteMany).toHaveBeenCalledWith({
+        where: { id: { in: ["aln-1", "aln-2"] } },
+      });
+      expect(db.auditLog.create).toHaveBeenCalledTimes(2);
+    });
+
+    it("denies MANAGER and STAFF from deleting alignment bills", async () => {
+      await expect(deleteAlignmentBills(["aln-1"], managerActor)).rejects.toThrowError(AppError);
+      await expect(deleteAlignmentBills(["aln-1"], staffActor)).rejects.toThrowError(AppError);
+    });
+
+    it("rejects deletion when empty array is provided", async () => {
+      await expect(deleteAlignmentBills([], adminActor)).rejects.toThrowError(AppError);
+    });
+
+    it("rejects deletion when target documents are not found", async () => {
+      vi.mocked(db.alignmentBill.findMany).mockResolvedValue([]);
+      await expect(deleteAlignmentBills(["nonexistent-id"], adminActor)).rejects.toThrowError(AppError);
     });
   });
 
