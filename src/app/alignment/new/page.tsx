@@ -17,6 +17,18 @@ interface ServiceRowState {
   isCustom?: boolean;
 }
 
+// Sanitization utilities
+const sanitizeDigitsOnly = (val: string) => val.replace(/\D/g, "");
+
+const sanitizeRate = (val: string) => {
+  const cleaned = val.replace(/[^0-9.]/g, "");
+  const parts = cleaned.split(".");
+  if (parts.length > 2) {
+    return parts[0] + "." + parts.slice(1).join("");
+  }
+  return cleaned;
+};
+
 export default function NewAlignmentBillPage() {
   const router = useRouter();
 
@@ -29,14 +41,14 @@ export default function NewAlignmentBillPage() {
   const [kilometers, setKilometers] = useState("");
   const [notes, setNotes] = useState("");
 
-  // 11 Fixed Pre-populated Services + Optional Dynamic Additional Services
+  // 11 Fixed Pre-populated Services (Default Qty = 0) + Optional Dynamic Additional Services
   const [services, setServices] = useState<ServiceRowState[]>(() =>
     DEFAULT_ALIGNMENT_SERVICES.map((s) => ({
       id: `std-${s.displayOrder}`,
       displayOrder: s.displayOrder,
       particular: s.particular,
       rate: "",
-      quantity: "1",
+      quantity: "0",
       isCustom: false,
     }))
   );
@@ -58,9 +70,16 @@ export default function NewAlignmentBillPage() {
   }, [rowAmounts]);
 
   const handleItemChange = (index: number, field: "particular" | "rate" | "quantity", value: string) => {
+    let sanitizedValue = value;
+    if (field === "quantity") {
+      sanitizedValue = sanitizeDigitsOnly(value);
+    } else if (field === "rate") {
+      sanitizedValue = sanitizeRate(value);
+    }
+
     setServices((prev) => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
+      updated[index] = { ...updated[index], [field]: sanitizedValue };
       return updated;
     });
   };
@@ -73,7 +92,7 @@ export default function NewAlignmentBillPage() {
         displayOrder: prev.length + 1,
         particular: "",
         rate: "",
-        quantity: "1",
+        quantity: "0",
         isCustom: true,
       },
     ]);
@@ -87,6 +106,26 @@ export default function NewAlignmentBillPage() {
         displayOrder: idx + 1,
       }));
     });
+  };
+
+  // Enter key behaves like Tab for seamless workshop data entry
+  const handleFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key === "Enter") {
+      const target = e.target as HTMLElement;
+      if (target && target.tagName === "INPUT") {
+        e.preventDefault();
+        const form = e.currentTarget;
+        const inputs = Array.from(
+          form.querySelectorAll<HTMLInputElement>(
+            "input:not([type='hidden']):not([type='submit']):not([disabled])"
+          )
+        );
+        const currentIndex = inputs.indexOf(target as HTMLInputElement);
+        if (currentIndex !== -1 && currentIndex < inputs.length - 1) {
+          inputs[currentIndex + 1].focus();
+        }
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -179,7 +218,7 @@ export default function NewAlignmentBillPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="space-y-6">
         {/* Document Header Details */}
         <Card className="p-5 space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-surface-200 pb-4">
@@ -264,10 +303,11 @@ export default function NewAlignmentBillPage() {
                 KM. (Odometer)
               </label>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 placeholder="e.g. 45000"
                 value={kilometers}
-                onChange={(e) => setKilometers(e.target.value)}
+                onChange={(e) => setKilometers(sanitizeDigitsOnly(e.target.value))}
                 className="w-full px-3 py-2 text-sm bg-white border border-surface-300 rounded-lg focus:ring-2 focus:ring-primary-500"
               />
             </div>
@@ -278,9 +318,10 @@ export default function NewAlignmentBillPage() {
               </label>
               <input
                 type="tel"
+                inputMode="numeric"
                 placeholder="e.g. 9876543210"
                 value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
+                onChange={(e) => setPhoneNumber(sanitizeDigitsOnly(e.target.value))}
                 className="w-full px-3 py-2 text-sm bg-white border border-surface-300 rounded-lg focus:ring-2 focus:ring-primary-500"
               />
             </div>
@@ -308,7 +349,7 @@ export default function NewAlignmentBillPage() {
                 Service Particulars &amp; Rates ({services.length} Services)
               </h3>
               <span className="text-xs text-surface-500 font-normal">
-                Standard 11 services are fixed. Leave unperformed services blank or 0.
+                Standard 11 services are fixed. Leave unperformed services 0 or blank.
               </span>
             </div>
             <Button
@@ -363,10 +404,9 @@ export default function NewAlignmentBillPage() {
                       </td>
                       <td className="py-2 px-4 text-center">
                         <input
-                          type="number"
-                          step="any"
-                          min="0"
-                          placeholder="1"
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="0"
                           value={row.quantity}
                           onChange={(e) => handleItemChange(idx, "quantity", e.target.value)}
                           className="w-full px-2 py-1 text-center text-sm border border-surface-300 rounded focus:ring-2 focus:ring-primary-500 font-medium"
@@ -374,9 +414,8 @@ export default function NewAlignmentBillPage() {
                       </td>
                       <td className="py-2 px-4 text-right">
                         <input
-                          type="number"
-                          step="any"
-                          min="0"
+                          type="text"
+                          inputMode="decimal"
                           placeholder="0.00"
                           value={row.rate}
                           onChange={(e) => handleItemChange(idx, "rate", e.target.value)}

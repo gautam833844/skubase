@@ -58,6 +58,14 @@ describe("Alignment & Service Billing Service Unit Tests", () => {
       const num = await generateNextAlignmentNumber(AlignmentDocType.BILL);
       expect(num).toBe("ALN-1005");
     });
+
+    it("verifies all 11 default service presets have defaultQuantity of 0", async () => {
+      const { DEFAULT_ALIGNMENT_SERVICES } = await import("@/lib/constants/alignment-services");
+      expect(DEFAULT_ALIGNMENT_SERVICES).toHaveLength(11);
+      DEFAULT_ALIGNMENT_SERVICES.forEach((preset) => {
+        expect(preset.defaultQuantity).toBe(0);
+      });
+    });
   });
 
   describe("Bill Creation & Calculation", () => {

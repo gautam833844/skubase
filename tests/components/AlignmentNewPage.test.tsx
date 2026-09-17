@@ -1,0 +1,103 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import NewAlignmentBillPage from "@/app/alignment/new/page";
+
+// Mock next/navigation
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/alignment/new",
+  useRouter: () => ({
+    push: vi.fn(),
+    refresh: vi.fn(),
+  }),
+}));
+
+const mockFetch = vi.fn();
+global.fetch = mockFetch;
+
+describe("NewAlignmentBillPage UI Component UX Tests", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders with 11 standard services defaulting quantity to 0 and total amount to 0", () => {
+    render(<NewAlignmentBillPage />);
+
+    expect(screen.getByRole("heading", { level: 1, name: /New Alignment Bill/i })).toBeDefined();
+
+    // Verify all 11 rows have quantity "0"
+    const qtyInputs = screen.getAllByPlaceholderText("0");
+    expect(qtyInputs.length).toBeGreaterThanOrEqual(11);
+    qtyInputs.forEach((input) => {
+      expect((input as HTMLInputElement).value).toBe("0");
+    });
+
+    // Total Amount should be ₹0.00
+    expect(screen.getByText("₹0.00")).toBeDefined();
+  });
+
+  it("defaults newly added additional service rows to quantity 0", async () => {
+    const user = userEvent.setup();
+    render(<NewAlignmentBillPage />);
+
+    const addBtn = screen.getByRole("button", { name: /Add Service/i });
+    await user.click(addBtn);
+
+    // Should have 12 rows now
+    const customParticular = screen.getByPlaceholderText(/Enter service name/i);
+    expect(customParticular).toBeDefined();
+
+    const qtyInputs = screen.getAllByPlaceholderText("0");
+    expect(qtyInputs).toHaveLength(12);
+    expect((qtyInputs[11] as HTMLInputElement).value).toBe("0");
+  });
+
+  it("sanitizes numeric fields (Phone, KM, Qty) to digits only", async () => {
+    const user = userEvent.setup();
+    render(<NewAlignmentBillPage />);
+
+    // Phone Number input
+    const phoneInput = screen.getByPlaceholderText(/9876543210/i) as HTMLInputElement;
+    await user.type(phoneInput, "abc987-xyz-654! 3210");
+    expect(phoneInput.value).toBe("9876543210");
+
+    // KM input
+    const kmInput = screen.getByPlaceholderText(/45000/i) as HTMLInputElement;
+    await user.type(kmInput, "12a3b4c5");
+    expect(kmInput.value).toBe("12345");
+
+    // Qty input for first row
+    const firstQtyInput = screen.getAllByPlaceholderText("0")[0] as HTMLInputElement;
+    await user.clear(firstQtyInput);
+    await user.type(firstQtyInput, "4x5y");
+    expect(firstQtyInput.value).toBe("45");
+  });
+
+  it("sanitizes Rates field to decimal numbers only", async () => {
+    const user = userEvent.setup();
+    render(<NewAlignmentBillPage />);
+
+    const firstRateInput = screen.getAllByPlaceholderText("0.00")[0] as HTMLInputElement;
+    await user.type(firstRateInput, "abc450.50.99xyz");
+    expect(firstRateInput.value).toBe("450.5099");
+  });
+
+  it("moves focus to the next input when Enter key is pressed without submitting form", () => {
+    render(<NewAlignmentBillPage />);
+
+    const customerInput = screen.getByPlaceholderText(/Rajesh Kumar/i) as HTMLInputElement;
+    const vehInput = screen.getByPlaceholderText(/TN 01 AB 1234/i) as HTMLInputElement;
+
+    customerInput.focus();
+    expect(document.activeElement).toBe(customerInput);
+
+    // Press Enter on customer input
+    fireEvent.keyDown(customerInput, { key: "Enter", code: "Enter" });
+
+    // Focus should move to Veh No input
+    expect(document.activeElement).toBe(vehInput);
+
+    // Ensure mockFetch was not called (form did not submit)
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+});
