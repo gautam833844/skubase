@@ -20,23 +20,28 @@ describe("NewAlignmentBillPage UI Component UX Tests", () => {
     vi.clearAllMocks();
   });
 
-  it("renders with 11 standard services defaulting quantity to 0 and total amount to 0", () => {
+  it("renders with 11 standard services defaulting quantity to empty (0) and total amount to 0", () => {
     render(<NewAlignmentBillPage />);
 
     expect(screen.getByRole("heading", { level: 1, name: /New Alignment Bill/i })).toBeDefined();
 
-    // Verify all 11 rows have quantity "0"
+    // Verify all 11 rows have visually empty quantity with placeholder "0"
     const qtyInputs = screen.getAllByPlaceholderText("0");
     expect(qtyInputs.length).toBeGreaterThanOrEqual(11);
     qtyInputs.forEach((input) => {
-      expect((input as HTMLInputElement).value).toBe("0");
+      expect((input as HTMLInputElement).value).toBe("");
     });
 
     // Total Amount should be ₹0.00
     expect(screen.getByText("₹0.00")).toBeDefined();
+
+    // Payment details section renders for Bill
+    expect(screen.getByText(/Payment Details/i)).toBeDefined();
+    expect(screen.getByRole("button", { name: /^Cash$/i })).toBeDefined();
+    expect(screen.getByRole("button", { name: /^UPI$/i })).toBeDefined();
   });
 
-  it("defaults newly added additional service rows to quantity 0", async () => {
+  it("defaults newly added additional service rows to empty quantity (0)", async () => {
     const user = userEvent.setup();
     render(<NewAlignmentBillPage />);
 
@@ -49,7 +54,30 @@ describe("NewAlignmentBillPage UI Component UX Tests", () => {
 
     const qtyInputs = screen.getAllByPlaceholderText("0");
     expect(qtyInputs).toHaveLength(12);
-    expect((qtyInputs[11] as HTMLInputElement).value).toBe("0");
+    expect((qtyInputs[11] as HTMLInputElement).value).toBe("");
+  });
+
+  it("toggles payment mode between Cash and UPI", async () => {
+    const user = userEvent.setup();
+    render(<NewAlignmentBillPage />);
+
+    const cashBtn = screen.getByRole("button", { name: /^Cash$/i });
+    const upiBtn = screen.getByRole("button", { name: /^UPI$/i });
+
+    expect(cashBtn.className).toContain("bg-primary-600");
+
+    await user.click(upiBtn);
+    expect(upiBtn.className).toContain("bg-primary-600");
+  });
+
+  it("displays estimate notice when switched to ESTIMATE document type", async () => {
+    const user = userEvent.setup();
+    render(<NewAlignmentBillPage />);
+
+    const estimateTab = screen.getByRole("button", { name: /ESTIMATE/i });
+    await user.click(estimateTab);
+
+    expect(screen.getByText(/Estimate \/ Quote Mode:/i)).toBeDefined();
   });
 
   it("sanitizes numeric fields (Phone, KM, Qty) to digits only", async () => {

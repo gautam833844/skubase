@@ -10,7 +10,7 @@ import {
 } from "@/services/alignment.service";
 import { db } from "@/lib/db";
 import { AppError } from "@/lib/errors";
-import { Prisma, AlignmentDocType, AlignmentBillStatus } from "@prisma/client";
+import { Prisma, AlignmentDocType, AlignmentBillStatus, AlignmentPaymentMode } from "@prisma/client";
 import type { AuthActor } from "@/lib/auth/permissions";
 
 vi.mock("@/lib/db", () => {
@@ -189,6 +189,8 @@ describe("Alignment & Service Billing Service Unit Tests", () => {
         vehicleNumber: "TN01AB1234",
         kilometers: 45000,
         totalAmount: new Prisma.Decimal("770.00"),
+        paymentMode: AlignmentPaymentMode.CASH,
+        paidAmount: new Prisma.Decimal("770.00"),
         status: AlignmentBillStatus.COMPLETED,
         notes: null,
         createdById: "staff-1",
@@ -224,6 +226,8 @@ describe("Alignment & Service Billing Service Unit Tests", () => {
           phoneNumber: "9876543210",
           vehicleNumber: "tn01ab1234",
           kilometers: 45000,
+          paymentMode: AlignmentPaymentMode.CASH,
+          paidAmount: 770,
           items: [
             { displayOrder: 1, particular: "Wheel Alignment 3D", rate: 450, quantity: 1 },
             { displayOrder: 2, particular: "Wheel Balancing", rate: 80, quantity: 4 },
@@ -235,6 +239,8 @@ describe("Alignment & Service Billing Service Unit Tests", () => {
       expect(result.billNumber).toBe("ALN-1001");
       expect(result.customerName).toBe("Rajesh Kumar");
       expect(result.totalAmount).toBe("770");
+      expect(result.paymentMode).toBe("CASH");
+      expect(result.paidAmount).toBe("770");
       expect(db.alignmentBill.create).toHaveBeenCalledTimes(1);
     });
 
@@ -257,6 +263,8 @@ describe("Alignment & Service Billing Service Unit Tests", () => {
             vehicleNumber: args.data.vehicleNumber,
             kilometers: args.data.kilometers,
             totalAmount: args.data.totalAmount,
+            paymentMode: args.data.paymentMode,
+            paidAmount: args.data.paidAmount,
             status: args.data.status,
             notes: args.data.notes,
             createdById: args.data.createdById,
@@ -276,6 +284,8 @@ describe("Alignment & Service Billing Service Unit Tests", () => {
           documentType: AlignmentDocType.BILL,
           customerName: "Suresh Babu",
           vehicleNumber: "AP02CD5678",
+          paymentMode: AlignmentPaymentMode.UPI,
+          paidAmount: 850,
           items: [
             { displayOrder: 1, particular: "Wheel Alignment 3D", rate: 450, quantity: 1 },
             { displayOrder: 10, particular: "Tyre Changing / Opening Fitting", rate: 100, quantity: 2 },
@@ -286,6 +296,8 @@ describe("Alignment & Service Billing Service Unit Tests", () => {
       );
 
       expect(result.customerName).toBe("Suresh Babu");
+      expect(result.paymentMode).toBe("UPI");
+      expect(result.paidAmount).toBe("850");
       // Standard items count = 11, plus 1 additional = 12 items total
       expect(capturedData.items.create).toHaveLength(12);
 
@@ -306,6 +318,167 @@ describe("Alignment & Service Billing Service Unit Tests", () => {
       expect(result.totalAmount).toBe("850");
     });
 
+    it("creates an Estimate without requiring payment details", async () => {
+      vi.mocked(db.alignmentBill.count).mockResolvedValue(0);
+      vi.mocked(db.alignmentBill.findUnique).mockResolvedValue(null);
+
+      let capturedData: any = null;
+      vi.mocked(db.alignmentBill.create).mockImplementation(
+        (async (args: any) => {
+          capturedData = args.data;
+          return {
+            id: "est-1",
+            billNumber: args.data.billNumber,
+            documentType: AlignmentDocType.ESTIMATE,
+            date: args.data.date,
+            customerId: null,
+            customerName: args.data.customerName,
+            phoneNumber: args.data.phoneNumber,
+            vehicleNumber: args.data.vehicleNumber,
+            kilometers: args.data.kilometers,
+            totalAmount: args.data.totalAmount,
+            paymentMode: null,
+            paidAmount: null,
+            status: AlignmentBillStatus.COMPLETED,
+            notes: null,
+            createdById: args.data.createdById,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            createdBy: { id: "admin-1", fullName: "Admin User", username: "admin" },
+            items: [],
+          };
+        }) as unknown as typeof db.alignmentBill.create
+      );
+
+      const result = await createAlignmentBill(
+        {
+          documentType: AlignmentDocType.ESTIMATE,
+          customerName: "Gopal Rao",
+          vehicleNumber: "KA04EF1234",
+          items: [
+            { displayOrder: 1, particular: "Wheel Alignment 3D", rate: 450, quantity: 1 },
+          ],
+        },
+        adminActor
+      );
+
+      expect(result.documentType).toBe("ESTIMATE");
+      expect(result.paymentMode).toBeNull();
+      expect(result.paidAmount).toBeNull();
+      expect(capturedData.paymentMode).toBeNull();
+      expect(capturedData.paidAmount).toBeNull();
+    });
+
+    it("rejects Bill creation when paymentMode is missing or invalid", async () => {
+      await expect(
+        createAlignmentBill(
+          {
+            documentType: AlignmentDocType.BILL,
+            customerName: "Rajesh",
+            vehicleNumber: "TN01AB1234",
+            paidAmount: 450,
+            items: [{ displayOrder: 1, particular: "Wheel Alignment 3D", rate: 450, quantity: 1 }],
+          },
+          staffActor
+        )
+      ).rejects.toThrowError(/Payment mode is required/i);
+    });
+
+    it("rejects Bill creation when paidAmount is missing", async () => {
+      await expect(
+        createAlignmentBill(
+          {
+            documentType: AlignmentDocType.BILL,
+            customerName: "Rajesh",
+            vehicleNumber: "TN01AB1234",
+            paymentMode: AlignmentPaymentMode.CASH,
+            items: [{ displayOrder: 1, particular: "Wheel Alignment 3D", rate: 450, quantity: 1 }],
+          },
+          staffActor
+        )
+      ).rejects.toThrowError(/Paid amount is required/i);
+    });
+
+    it("rejects Bill creation when paidAmount is less than server-calculated total", async () => {
+      await expect(
+        createAlignmentBill(
+          {
+            documentType: AlignmentDocType.BILL,
+            customerName: "Rajesh",
+            vehicleNumber: "TN01AB1234",
+            paymentMode: AlignmentPaymentMode.CASH,
+            paidAmount: 300, // Less than 450 total
+            items: [{ displayOrder: 1, particular: "Wheel Alignment 3D", rate: 450, quantity: 1 }],
+          },
+          staffActor
+        )
+      ).rejects.toThrowError(/Full payment required/i);
+    });
+
+    it("rejects Bill creation when paidAmount is greater than server-calculated total", async () => {
+      await expect(
+        createAlignmentBill(
+          {
+            documentType: AlignmentDocType.BILL,
+            customerName: "Rajesh",
+            vehicleNumber: "TN01AB1234",
+            paymentMode: AlignmentPaymentMode.UPI,
+            paidAmount: 500, // Greater than 450 total
+            items: [{ displayOrder: 1, particular: "Wheel Alignment 3D", rate: 450, quantity: 1 }],
+          },
+          staffActor
+        )
+      ).rejects.toThrowError(/Full payment required/i);
+    });
+
+    it("recalculates line-item amounts on server rather than trusting client", async () => {
+      let capturedData: any = null;
+      vi.mocked(db.alignmentBill.create).mockImplementation(
+        (async (args: any) => {
+          capturedData = args.data;
+          return {
+            id: "aln-calc-1",
+            billNumber: args.data.billNumber,
+            documentType: args.data.documentType,
+            date: args.data.date,
+            customerId: null,
+            customerName: args.data.customerName,
+            phoneNumber: null,
+            vehicleNumber: args.data.vehicleNumber,
+            kilometers: null,
+            totalAmount: args.data.totalAmount,
+            paymentMode: args.data.paymentMode,
+            paidAmount: args.data.paidAmount,
+            status: AlignmentBillStatus.COMPLETED,
+            notes: null,
+            createdById: args.data.createdById,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            createdBy: { id: "admin-1", fullName: "Admin User", username: "admin" },
+            items: [],
+          };
+        }) as unknown as typeof db.alignmentBill.create
+      );
+
+      const result = await createAlignmentBill(
+        {
+          documentType: AlignmentDocType.BILL,
+          customerName: "Trust Test",
+          vehicleNumber: "AP01XY9999",
+          paymentMode: AlignmentPaymentMode.CASH,
+          paidAmount: 650, // 450 (std 1) + 200 (std 10: 2x100)
+          items: [
+            { displayOrder: 1, particular: "Wheel Alignment 3D", rate: 450, quantity: 1 },
+            { displayOrder: 10, particular: "Tyre Changing", rate: 100, quantity: 2 },
+          ],
+        },
+        adminActor
+      );
+
+      expect(Number(capturedData.totalAmount)).toBe(650);
+      expect(result.totalAmount).toBe("650");
+    });
+
     it("rejects creation when customer name is missing", async () => {
       await expect(
         createAlignmentBill(
@@ -313,6 +486,8 @@ describe("Alignment & Service Billing Service Unit Tests", () => {
             documentType: AlignmentDocType.BILL,
             customerName: "",
             vehicleNumber: "TN01AB1234",
+            paymentMode: AlignmentPaymentMode.CASH,
+            paidAmount: 0,
             items: [],
           },
           staffActor
@@ -327,6 +502,8 @@ describe("Alignment & Service Billing Service Unit Tests", () => {
             documentType: AlignmentDocType.BILL,
             customerName: "Ramesh",
             vehicleNumber: "",
+            paymentMode: AlignmentPaymentMode.CASH,
+            paidAmount: 0,
             items: [],
           },
           staffActor

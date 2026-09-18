@@ -40,15 +40,16 @@ export default function NewAlignmentBillPage() {
   const [vehicleNumber, setVehicleNumber] = useState("");
   const [kilometers, setKilometers] = useState("");
   const [notes, setNotes] = useState("");
+  const [paymentMode, setPaymentMode] = useState<"CASH" | "UPI">("CASH");
 
-  // 11 Fixed Pre-populated Services (Default Qty = 0) + Optional Dynamic Additional Services
+  // 11 Fixed Pre-populated Services (Default Qty = empty/0) + Optional Dynamic Additional Services
   const [services, setServices] = useState<ServiceRowState[]>(() =>
     DEFAULT_ALIGNMENT_SERVICES.map((s) => ({
       id: `std-${s.displayOrder}`,
       displayOrder: s.displayOrder,
       particular: s.particular,
       rate: "",
-      quantity: "0",
+      quantity: "",
       isCustom: false,
     }))
   );
@@ -92,7 +93,7 @@ export default function NewAlignmentBillPage() {
         displayOrder: prev.length + 1,
         particular: "",
         rate: "",
-        quantity: "0",
+        quantity: "",
         isCustom: true,
       },
     ]);
@@ -164,6 +165,8 @@ export default function NewAlignmentBillPage() {
         vehicleNumber: vehicleNumber.trim().toUpperCase(),
         kilometers: kilometers ? parseInt(kilometers, 10) : undefined,
         notes: notes.trim() || undefined,
+        paymentMode: documentType === "BILL" ? paymentMode : undefined,
+        paidAmount: documentType === "BILL" ? grandTotal : undefined,
         items: services
           .filter((s) => !s.isCustom || s.particular.trim().length > 0)
           .map((s) => ({
@@ -475,6 +478,73 @@ export default function NewAlignmentBillPage() {
             </div>
           </div>
         </Card>
+
+        {/* Payment Details (Required for Bills - Full Payment Only) */}
+        {documentType === "BILL" ? (
+          <Card className="p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-surface-200 pb-3">
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-surface-700">
+                  Payment Details (Full Payment)
+                </h3>
+                <p className="text-xs text-surface-500">
+                  Select payment mode. Full payment equal to document total is recorded.
+                </p>
+              </div>
+              <div className="text-xs font-bold px-2.5 py-1 bg-success-50 text-success-700 border border-success-200 rounded-md">
+                Full Payment: ₹{grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              <div>
+                <label className="block text-xs font-bold text-surface-700 uppercase mb-1">
+                  Payment Mode <span className="text-danger-500">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMode("CASH")}
+                    className={`flex-1 py-2.5 px-4 text-xs font-bold rounded-lg cursor-pointer transition-all ${
+                      paymentMode === "CASH"
+                        ? "bg-primary-600 text-white shadow-sm"
+                        : "bg-surface-100 text-surface-700 hover:bg-surface-200 border border-surface-300"
+                    }`}
+                  >
+                    Cash
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMode("UPI")}
+                    className={`flex-1 py-2.5 px-4 text-xs font-bold rounded-lg cursor-pointer transition-all ${
+                      paymentMode === "UPI"
+                        ? "bg-primary-600 text-white shadow-sm"
+                        : "bg-surface-100 text-surface-700 hover:bg-surface-200 border border-surface-300"
+                    }`}
+                  >
+                    UPI
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-surface-700 uppercase mb-1">
+                  Paid Amount (₹)
+                </label>
+                <input
+                  type="text"
+                  readOnly
+                  value={`₹${grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`}
+                  className="w-full px-3 py-2 text-sm bg-surface-100 border border-surface-300 rounded-lg font-mono font-bold text-surface-900 cursor-not-allowed"
+                />
+              </div>
+            </div>
+          </Card>
+        ) : (
+          <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 font-medium">
+            <span className="font-bold">Estimate / Quote Mode:</span> No payment will be recorded for this estimate until converted to a final bill.
+          </div>
+        )}
 
         {/* Action Bar */}
         <div className="flex justify-end gap-3 pt-2">

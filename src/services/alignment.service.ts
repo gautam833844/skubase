@@ -2,7 +2,7 @@ import { jsPDF } from "jspdf";
 import { db } from "@/lib/db";
 import { requirePermission, getPermissionScope, type AuthActor } from "@/lib/auth/permissions";
 import { AppError } from "@/lib/errors";
-import { Prisma, AlignmentDocType, AlignmentBillStatus } from "@prisma/client";
+import { Prisma, AlignmentDocType, AlignmentBillStatus, AlignmentPaymentMode } from "@prisma/client";
 import { getShopSettings } from "./shop.service";
 import { DEFAULT_ALIGNMENT_SERVICES } from "@/lib/constants/alignment-services";
 import type {
@@ -209,6 +209,52 @@ export async function createAlignmentBill(
     });
   });
 
+  const roundedComputedTotal = Number(computedTotal.toFixed(2));
+
+  // Payment Validation: Bills require full payment (CASH or UPI) equal to computed total
+  let validatedPaymentMode: AlignmentPaymentMode | null = null;
+  let validatedPaidAmount: Prisma.Decimal | null = null;
+
+  if (docType === AlignmentDocType.BILL) {
+    const mode = input.paymentMode;
+    if (!mode || (mode !== "CASH" && mode !== "UPI")) {
+      throw new AppError(
+        "VALIDATION",
+        "Payment mode is required for bills (CASH or UPI)",
+        "Please select a valid payment mode (Cash or UPI)."
+      );
+    }
+    validatedPaymentMode = mode as AlignmentPaymentMode;
+
+    if (input.paidAmount === undefined || input.paidAmount === null || input.paidAmount === "") {
+      throw new AppError(
+        "VALIDATION",
+        "Paid amount is required for bills",
+        "Please enter the paid amount."
+      );
+    }
+
+    const parsedPaid = parseFloat(String(input.paidAmount).replace(/,/g, ""));
+    if (isNaN(parsedPaid) || parsedPaid < 0) {
+      throw new AppError(
+        "VALIDATION",
+        "Paid amount must be a valid non-negative number",
+        "Please enter a valid paid amount."
+      );
+    }
+
+    const roundedPaid = Number(parsedPaid.toFixed(2));
+    if (Math.abs(roundedPaid - roundedComputedTotal) > 0.001) {
+      throw new AppError(
+        "VALIDATION",
+        `Full payment required. Paid amount (₹${roundedPaid.toFixed(2)}) must equal document total (₹${roundedComputedTotal.toFixed(2)}).`,
+        `Full payment is required. Paid amount must exactly equal total amount of ₹${roundedComputedTotal.toFixed(2)}.`
+      );
+    }
+
+    validatedPaidAmount = new Prisma.Decimal(roundedComputedTotal.toFixed(2));
+  }
+
   const finalBill = await db.$transaction(async (tx) => {
     const billNumber = await generateNextAlignmentNumber(docType, tx);
 
@@ -222,7 +268,9 @@ export async function createAlignmentBill(
         phoneNumber: input.phoneNumber?.trim() || null,
         vehicleNumber,
         kilometers: parsedKm,
-        totalAmount: new Prisma.Decimal(computedTotal.toFixed(2)),
+        totalAmount: new Prisma.Decimal(roundedComputedTotal.toFixed(2)),
+        paymentMode: validatedPaymentMode,
+        paidAmount: validatedPaidAmount,
         status: AlignmentBillStatus.COMPLETED,
         notes: input.notes?.trim() || null,
         createdById: actor.id,
@@ -258,6 +306,8 @@ export async function createAlignmentBill(
           customerName: bill.customerName,
           vehicleNumber: bill.vehicleNumber,
           totalAmount: bill.totalAmount.toString(),
+          paymentMode: bill.paymentMode,
+          paidAmount: bill.paidAmount ? bill.paidAmount.toString() : null,
         },
       },
     });
@@ -716,11 +766,27 @@ export async function generateAlignmentPdf(id: string, actor: AuthActor): Promis
 
   const totalFormatted = Number(bill.totalAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 });
   doc.text(totalFormatted, colAmt, cursorY + 5.5, { align: "right" });
-  cursorY += 12;
+  cursorY += 10;
+
+  // 4b. Payment Details Bar (Bills: Payment Mode & Paid Amount | Estimates: Quote Notice)
+  doc.setFontSize(8.5);
+  if (bill.documentType === "BILL" && bill.paymentMode) {
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(30, 41, 59);
+    doc.text(`Payment Mode: ${bill.paymentMode}`, margin + 2, cursorY + 3);
+    const paidAmtFormatted = Number(bill.paidAmount ?? bill.totalAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+    doc.text(`Paid Amount: Rs. ${paidAmtFormatted}`, margin + contentWidth - 2, cursorY + 3, { align: "right" });
+    cursorY += 6;
+  } else if (bill.documentType === "ESTIMATE") {
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(100, 116, 139);
+    doc.text("[ Estimate / Quotation — Not a Tax Invoice ]", margin + 2, cursorY + 3);
+    cursorY += 6;
+  }
 
   // 5. Authentic Physical Reference Footer (ELOGI + For Preethi Tyres / Signature)
   const footerBoxHeight = 24;
-  const footerBoxY = cursorY;
+  const footerBoxY = cursorY + 2;
 
   // Left Box: ELOGI / Manufacturing Wheel Alignment Note (WITHOUT maintenance bullets)
   const leftBoxWidth = contentWidth * 0.50;
@@ -776,6 +842,8 @@ function formatAlignmentBillView(bill: AlignmentBillWithRelations): AlignmentBil
     vehicleNumber: bill.vehicleNumber,
     kilometers: bill.kilometers,
     totalAmount: bill.totalAmount.toString(),
+    paymentMode: bill.paymentMode ?? null,
+    paidAmount: bill.paidAmount ? bill.paidAmount.toString() : null,
     status: bill.status,
     notes: bill.notes,
     createdById: bill.createdById,

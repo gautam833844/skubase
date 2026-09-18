@@ -2,7 +2,7 @@
 // Skubase — Alignment & Service Billing Types
 // =============================================================================
 
-import type { AlignmentDocType, AlignmentBillStatus } from "@prisma/client";
+import type { AlignmentDocType, AlignmentBillStatus, AlignmentPaymentMode } from "@prisma/client";
 
 export interface AlignmentBillItemInput {
   particular: string;
@@ -20,6 +20,8 @@ export interface CreateAlignmentBillInput {
   kilometers?: number | string | null;
   date?: string | Date;
   notes?: string | null;
+  paymentMode?: AlignmentPaymentMode | null;
+  paidAmount?: number | string | null;
   items: AlignmentBillItemInput[];
 }
 
@@ -54,6 +56,8 @@ export interface AlignmentBillView {
   vehicleNumber: string;
   kilometers: number | null;
   totalAmount: string;
+  paymentMode: AlignmentPaymentMode | null;
+  paidAmount: string | null;
   status: AlignmentBillStatus;
   notes: string | null;
   createdById: string | null;

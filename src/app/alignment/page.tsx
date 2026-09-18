@@ -332,7 +332,12 @@ export default function AlignmentBillingPage() {
                         {bill.kilometers !== null ? bill.kilometers.toLocaleString("en-IN") : "—"}
                       </td>
                       <td className="px-6 py-4 text-right font-bold text-surface-900">
-                        ₹{Number(bill.totalAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        <div>₹{Number(bill.totalAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
+                        {bill.paymentMode && (
+                          <span className="inline-block text-[10px] font-semibold text-primary-700 bg-primary-50 px-1.5 py-0.5 rounded mt-0.5">
+                            {bill.paymentMode}
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-right space-x-2">
                         <Link href={`/alignment/${bill.id}`}>

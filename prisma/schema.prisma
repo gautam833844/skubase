@@ -115,6 +115,11 @@ enum AlignmentBillStatus {
   VOIDED
 }
 
+enum AlignmentPaymentMode {
+  CASH
+  UPI
+}
+
 enum ClaimResolutionType {
   REPLACEMENT_FROM_STOCK
   CREDIT_NOTE
@@ -591,8 +596,10 @@ model AlignmentBill {
   phoneNumber   String?             @map("phone_number")
   vehicleNumber String              @map("vehicle_number")
   kilometers    Int?                @map("kilometers")
-  totalAmount   Decimal             @map("total_amount") @db.Decimal(12, 2)
-  status        AlignmentBillStatus @default(COMPLETED)
+  totalAmount   Decimal               @map("total_amount") @db.Decimal(12, 2)
+  paymentMode   AlignmentPaymentMode? @map("payment_mode")
+  paidAmount    Decimal?              @map("paid_amount") @db.Decimal(12, 2)
+  status        AlignmentBillStatus   @default(COMPLETED)
   notes         String?
   createdById   String?             @map("created_by_id")
   createdAt     DateTime            @default(now()) @map("created_at")

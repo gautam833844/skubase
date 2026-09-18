@@ -64,6 +64,8 @@ export async function POST(request: Request) {
         kilometers: body.kilometers,
         date: body.date,
         notes: body.notes,
+        paymentMode: body.paymentMode,
+        paidAmount: body.paidAmount,
         items: body.items,
       },
       auth.user

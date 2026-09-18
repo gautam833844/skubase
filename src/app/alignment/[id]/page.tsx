@@ -323,6 +323,27 @@ export default function AlignmentBillDetailPage({
                 </tr>
               </tfoot>
             </table>
+
+            {/* Payment Details Bar */}
+            {bill.documentType === "BILL" && bill.paymentMode && (
+              <div className="flex justify-between items-center px-2.5 py-1.5 border-b border-black bg-surface-50 text-xs font-bold text-black">
+                <div>
+                  <span>Payment Mode: </span>
+                  <span className="font-mono">{bill.paymentMode}</span>
+                </div>
+                <div>
+                  <span>Paid Amount: </span>
+                  <span className="font-mono">
+                    ₹{Number(bill.paidAmount ?? bill.totalAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            )}
+            {bill.documentType === "ESTIMATE" && (
+              <div className="px-2.5 py-1 border-b border-black text-center text-xs italic text-surface-600">
+                [ Estimate / Quotation — Not a Tax Invoice ]
+              </div>
+            )}
           </div>
 
           {/* 4. Authentic Split Footer (ELOGI + Signature) */}
