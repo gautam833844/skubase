@@ -21,20 +21,30 @@ import type {
  * Bills:     ALN-1001, ALN-1002...
  * Guarantees that deleted bill numbers are consumed and never reused.
  */
-export async function generateNextAlignmentNumber(documentType: AlignmentDocType): Promise<string> {
+export async function generateNextAlignmentNumber(
+  documentType: AlignmentDocType,
+  client: Prisma.TransactionClient | typeof db = db
+): Promise<string> {
   const prefix = documentType === "ESTIMATE" ? "EST" : "ALN";
+  const prefixRegex = new RegExp(`^${prefix}-(\\d+)$`);
+  let maxSeq = 1000;
 
-  // Find max sequence number from existing bills
-  const bills = await db.alignmentBill.findMany({
-    where: { documentType },
-    select: { billNumber: true },
+  // 1. Query highest existing bill/estimate number in active database
+  const latestBill = await client.alignmentBill.findFirst({
+    where: {
+      documentType,
+      billNumber: { startsWith: `${prefix}-` },
+    },
+    orderBy: {
+      billNumber: "desc",
+    },
+    select: {
+      billNumber: true,
+    },
   });
 
-  let maxSeq = 1000;
-  const prefixRegex = new RegExp(`^${prefix}-(\\d+)$`);
-
-  for (const b of bills) {
-    const match = b.billNumber.match(prefixRegex);
+  if (latestBill) {
+    const match = latestBill.billNumber.match(prefixRegex);
     if (match) {
       const num = parseInt(match[1], 10);
       if (!isNaN(num) && num > maxSeq) {
@@ -43,40 +53,43 @@ export async function generateNextAlignmentNumber(documentType: AlignmentDocType
     }
   }
 
-  // Also check audit logs to ensure deleted bill numbers are never reused
+  // 2. Query audit logs for deleted / consumed bill numbers
   try {
-    const auditLogs = await db.auditLog.findMany({
-      where: { entityName: "AlignmentBill" },
-      select: { newState: true, oldState: true },
+    const deletedLogs = await client.auditLog.findMany({
+      where: {
+        entityName: "AlignmentBill",
+        action: "ALIGNMENT_BILL_DELETED",
+      },
+      select: {
+        oldState: true,
+      },
     });
 
-    for (const log of auditLogs) {
-      const states = [log.newState, log.oldState];
-      for (const st of states) {
-        if (st && typeof st === "object" && "billNumber" in st) {
-          const bn = String((st as any).billNumber);
-          const match = bn.match(prefixRegex);
-          if (match) {
-            const num = parseInt(match[1], 10);
-            if (!isNaN(num) && num > maxSeq) {
-              maxSeq = num;
-            }
+    for (const log of deletedLogs) {
+      const st = log.oldState;
+      if (st && typeof st === "object" && "billNumber" in st) {
+        const bn = String((st as any).billNumber);
+        const match = bn.match(prefixRegex);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num > maxSeq) {
+            maxSeq = num;
           }
         }
       }
     }
   } catch {
-    // If audit log query fails for any reason, continue with maxSeq from bills
+    // Fallback to maxSeq if audit log query fails
   }
 
   const nextSeq = maxSeq + 1;
   let candidate = `${prefix}-${nextSeq}`;
 
-  let exists = await db.alignmentBill.findUnique({ where: { billNumber: candidate } });
+  let exists = await client.alignmentBill.findUnique({ where: { billNumber: candidate } });
   let offset = 1;
   while (exists) {
     candidate = `${prefix}-${nextSeq + offset}`;
-    exists = await db.alignmentBill.findUnique({ where: { billNumber: candidate } });
+    exists = await client.alignmentBill.findUnique({ where: { billNumber: candidate } });
     offset++;
   }
 
@@ -197,7 +210,7 @@ export async function createAlignmentBill(
   });
 
   const finalBill = await db.$transaction(async (tx) => {
-    const billNumber = await generateNextAlignmentNumber(docType);
+    const billNumber = await generateNextAlignmentNumber(docType, tx);
 
     const bill = await tx.alignmentBill.create({
       data: {

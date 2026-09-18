@@ -19,6 +19,7 @@ vi.mock("@/lib/db", () => {
       alignmentBill: {
         count: vi.fn(),
         findUnique: vi.fn(),
+        findFirst: vi.fn(),
         findMany: vi.fn(),
         create: vi.fn(),
         update: vi.fn(),
@@ -47,7 +48,7 @@ describe("Alignment & Service Billing Service Unit Tests", () => {
 
   describe("Sequential Number Generation", () => {
     it("generates EST-1001 for first estimate", async () => {
-      vi.mocked(db.alignmentBill.findMany).mockResolvedValue([]);
+      vi.mocked(db.alignmentBill.findFirst).mockResolvedValue(null);
       vi.mocked(db.auditLog.findMany).mockResolvedValue([]);
       vi.mocked(db.alignmentBill.findUnique).mockResolvedValue(null);
 
@@ -56,10 +57,7 @@ describe("Alignment & Service Billing Service Unit Tests", () => {
     });
 
     it("generates ALN-1005 when highest existing bill is ALN-1004", async () => {
-      vi.mocked(db.alignmentBill.findMany).mockResolvedValue([
-        { billNumber: "ALN-1001" },
-        { billNumber: "ALN-1004" },
-      ] as any);
+      vi.mocked(db.alignmentBill.findFirst).mockResolvedValue({ billNumber: "ALN-1004" } as any);
       vi.mocked(db.auditLog.findMany).mockResolvedValue([]);
       vi.mocked(db.alignmentBill.findUnique).mockResolvedValue(null);
 
@@ -67,23 +65,103 @@ describe("Alignment & Service Billing Service Unit Tests", () => {
       expect(num).toBe("ALN-1005");
     });
 
-    it("does not reuse deleted bill numbers found in audit logs", async () => {
-      // Suppose ALN-1003 was deleted, so existing bills only have ALN-1001, ALN-1002
-      vi.mocked(db.alignmentBill.findMany).mockResolvedValue([
-        { billNumber: "ALN-1001" },
-        { billNumber: "ALN-1002" },
-      ] as any);
-      // Audit log records that ALN-1003 was previously created / deleted
+    it("does not reuse deleted bill numbers found in audit logs for bills (ALN)", async () => {
+      // Suppose ALN-1003 was deleted, latest existing is ALN-1002
+      vi.mocked(db.alignmentBill.findFirst).mockResolvedValue({ billNumber: "ALN-1002" } as any);
+      // Audit log records that ALN-1003 was deleted
       vi.mocked(db.auditLog.findMany).mockResolvedValue([
         {
-          newState: { billNumber: "ALN-1003" },
-          oldState: null,
+          oldState: { billNumber: "ALN-1003" },
         },
       ] as any);
       vi.mocked(db.alignmentBill.findUnique).mockResolvedValue(null);
 
       const num = await generateNextAlignmentNumber(AlignmentDocType.BILL);
       expect(num).toBe("ALN-1004");
+      expect(db.auditLog.findMany).toHaveBeenCalledWith({
+        where: {
+          entityName: "AlignmentBill",
+          action: "ALIGNMENT_BILL_DELETED",
+        },
+        select: {
+          oldState: true,
+        },
+      });
+    });
+
+    it("does not reuse deleted estimate numbers found in audit logs for estimates (EST)", async () => {
+      // Suppose EST-1002 was deleted, latest existing is EST-1001
+      vi.mocked(db.alignmentBill.findFirst).mockResolvedValue({ billNumber: "EST-1001" } as any);
+      // Audit log records that EST-1002 was deleted
+      vi.mocked(db.auditLog.findMany).mockResolvedValue([
+        {
+          oldState: { billNumber: "EST-1002" },
+        },
+      ] as any);
+      vi.mocked(db.alignmentBill.findUnique).mockResolvedValue(null);
+
+      const num = await generateNextAlignmentNumber(AlignmentDocType.ESTIMATE);
+      expect(num).toBe("EST-1003");
+    });
+
+    it("intermediate deleted numbers do not downgrade or interfere with higher active sequences", async () => {
+      // Active highest is ALN-1010, but ALN-1003 was deleted earlier
+      vi.mocked(db.alignmentBill.findFirst).mockResolvedValue({ billNumber: "ALN-1010" } as any);
+      vi.mocked(db.auditLog.findMany).mockResolvedValue([
+        { oldState: { billNumber: "ALN-1003" } },
+      ] as any);
+      vi.mocked(db.alignmentBill.findUnique).mockResolvedValue(null);
+
+      const num = await generateNextAlignmentNumber(AlignmentDocType.BILL);
+      expect(num).toBe("ALN-1011");
+    });
+
+    it("safely handles malformed or unexpected audit log oldState objects", async () => {
+      vi.mocked(db.alignmentBill.findFirst).mockResolvedValue({ billNumber: "ALN-1005" } as any);
+      vi.mocked(db.auditLog.findMany).mockResolvedValue([
+        { oldState: null },
+        { oldState: "invalid string" },
+        { oldState: { unrelated: "value" } },
+        { oldState: { billNumber: "NOT-A-NUMBER" } },
+        { oldState: { billNumber: "EST-1050" } }, // Different document type sequence
+        { oldState: { billNumber: "ALN-1008" } }, // Higher deleted number
+      ] as any);
+      vi.mocked(db.alignmentBill.findUnique).mockResolvedValue(null);
+
+      const num = await generateNextAlignmentNumber(AlignmentDocType.BILL);
+      expect(num).toBe("ALN-1009");
+    });
+
+    it("executes all numbering queries through the provided transaction client", async () => {
+      const mockTx = {
+        alignmentBill: {
+          findFirst: vi.fn().mockResolvedValue({ billNumber: "ALN-1010" }),
+          findUnique: vi.fn().mockResolvedValue(null),
+        },
+        auditLog: {
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+      };
+
+      const num = await generateNextAlignmentNumber(AlignmentDocType.BILL, mockTx as any);
+      expect(num).toBe("ALN-1011");
+      expect(mockTx.alignmentBill.findFirst).toHaveBeenCalledWith({
+        where: { documentType: AlignmentDocType.BILL, billNumber: { startsWith: "ALN-" } },
+        orderBy: { billNumber: "desc" },
+        select: { billNumber: true },
+      });
+      expect(mockTx.auditLog.findMany).toHaveBeenCalledWith({
+        where: {
+          entityName: "AlignmentBill",
+          action: "ALIGNMENT_BILL_DELETED",
+        },
+        select: {
+          oldState: true,
+        },
+      });
+      // Ensure global db was NOT queried
+      expect(db.alignmentBill.findFirst).not.toHaveBeenCalled();
+      expect(db.auditLog.findMany).not.toHaveBeenCalled();
     });
 
     it("verifies all 11 default service presets have defaultQuantity of 0", async () => {
